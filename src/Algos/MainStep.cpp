@@ -548,12 +548,6 @@ bool NOMAD::MainStep::runImp()
 
     for (auto algo : _algos)
     {
-        // Note: Algo start could be moved from outside to inside the parallel region
-        // so that evaluation of multiple X0s is done in parallel.
-        // Currently this may cause an issue with evc parameters (may be get before
-        // they are checked).
-        algo->start();
-
         // Begin parallel region.
         // Note: always use default(none) and never default(shared), which is much
         // too risky.
@@ -568,6 +562,11 @@ bool NOMAD::MainStep::runImp()
 
             if (evc->isMainThread(NOMAD::getThreadNum()))
             {
+                // Algo start has been moved from outside to inside the parallel region
+                // so that evaluation of multiple X0s is done in parallel.
+                // This may cause an issue with evc parameters. TODO run tests
+                algo->start();
+                
                 // Algo run is done in main thread(s) only.
                 ret = algo->run();
 
