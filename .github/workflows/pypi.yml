@@ -4,9 +4,27 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build binary wheels for Linux platforms.
-    runs-on: ubuntu-latest
+  build-gcc:
+    strategy:
+      matrix:
+        config:
+          - name: windows-gcc
+            os: windows-latest
+            cc: x86_64-w64-mingw32-gcc
+            cxx: x86_64-w64-mingw32-g++
+
+          - name: ubuntu-gcc
+            os: ubuntu-latest
+            cc: gcc
+            cxx: g++
+
+          - name: macos-gcc
+            os: macos-latest
+            cc: gcc
+            cxx: g++
+
+    runs-on: ${{ matrix.config.os }}
+    name: Build binary wheels for ${{ matrix.config.name }} platform.
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v3
@@ -25,6 +43,8 @@ jobs:
         CIBW_BEFORE_BUILD: >-
           pip install cython setuptools
         CIBW_ENVIRONMENT: >-
+          CC=${{ matrix.config.cc }}
+          CXX=${{ matrix.config.cxx }}
           NOMAD_SRC=../../src
           NOMAD_BUILD_DIR=../../build
           NOMAD_MSVC_FLAG=
