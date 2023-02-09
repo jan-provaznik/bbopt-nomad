@@ -8,12 +8,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config:
+        conf: Release
+        target:
           - name: windows-gcc
             os: windows-latest
             archs: AMD64
             cxx: x86_64-w64-mingw32-g++
             cc: x86_64-w64-mingw32-gcc
+
+          - name: windows-msvc
+            os: windows-latest
+            archs: AMD64
+            cxx: cl
+            cc: cl
+            msvc: 1
+            environment_script: "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Auxiliary/Build/vcvars64.bat"
 
           - name: ubuntu-gcc
             os: ubuntu-latest
@@ -27,8 +36,8 @@ jobs:
             cxx: g++
             cc: gcc
 
-    runs-on: ${{ matrix.config.os }}
-    name: Build binary wheels for ${{ matrix.config.name }} platform.
+    runs-on: ${{ matrix.target.os }}
+    name: Build binary wheels for ${{ matrix.target.name }} platform with $${{ matrix.targer.conf }} configuration.
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v3
@@ -37,7 +46,7 @@ jobs:
       uses: pypa/cibuildwheel@v2.12.0
       env:
         CIBW_ARCHS: >-
-          ${{ matrix.conf.archs }}
+          ${{ matrix.target.archs }}
         CIBW_PROJECT_REQUIRES_PYTHON: >-
           >=3.10
         CIBW_BEFORE_ALL: >-
@@ -47,12 +56,12 @@ jobs:
         CIBW_BEFORE_BUILD: >-
           pip install cython setuptools
         CIBW_ENVIRONMENT: >-
-          CC=${{ matrix.config.cc }}
-          CXX=${{ matrix.config.cxx }}
+          CC=${{ matrix.target.cc }}
+          CXX=${{ matrix.target.cxx }}
           NOMAD_SRC=../../src
           NOMAD_BUILD_DIR=../../build
-          NOMAD_MSVC_FLAG=
-          NOMAD_MSVC_CONF=
+          NOMAD_MSVC_FLAG=${{ matrix.target.msvc }}
+          NOMAD_MSVC_CONF=${{ matrix.target.conf }}
         CIBW_BUILD_VERBOSITY: >-
           3
       with:
