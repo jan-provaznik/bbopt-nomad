@@ -593,13 +593,13 @@ if (WIN32)
 endif()
 
 # Build shared libraries (nomadUtils, nomadEval, nomadAlgos)
-# include(./CMakeListsLibs.txt)
+include(./CMakeListsLibs.txt)
 
 # Build static libraries (nomadStatic)
 include(./CMakeListsLibsStatic.txt)
 
 # Build statically linked executables (nomad)
-# include(./CMakeListsExesStatic.txt)
+include(./CMakeListsExesStatic.txt)
 
 #
 # Install executable, libraries and headers
