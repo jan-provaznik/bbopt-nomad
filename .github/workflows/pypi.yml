@@ -10,12 +10,12 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          - name: windows-gcc
-            os: windows-latest
-            archs: AMD64
-            cxx: x86_64-w64-mingw32-g++
-            cc: x86_64-w64-mingw32-gcc
-            cmake_generator: -G "MinGW Makefiles"
+          # - name: windows-gcc
+          #   os: windows-latest
+          #   archs: AMD64
+          #   cxx: x86_64-w64-mingw32-g++
+          #   cc: x86_64-w64-mingw32-gcc
+          #   cmake_generator: -G "MinGW Makefiles"
 
           - name: windows-msvc
             os: windows-latest
