@@ -1,0 +1,44 @@
+name: Build and publish binary wheels.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build binary wheels for Linux platforms.
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v3
+
+    - name: Build binary wheels
+      uses: pypa/cibuildwheel@v2.12.0
+      env:
+        CIBW_ARCHS: >-
+          x86_64
+        CIBW_PROJECT_REQUIRES_PYTHON: >-
+          >=3.10
+        CIBW_BEFORE_ALL: >-
+          cmake -DTEST_OPENMP=OFF -DBUILD_INTERFACE_PYTHON=OFF -DBUILD_EXAMPLES=OFF -S . -B build ; 
+          cmake --build build --target clean ;
+          cmake --build build --parllel ;
+        CIBW_BEFORE_BUILD: >-
+          pip install cython setuptools
+        CIBW_ENVIRONMENT: >-
+          NOMAD_SRC=../..
+          NOMAD_BUILD_DIR=../../build/src
+          NOMAD_MSVC_FLAG=
+          NOMAD_MSVC_CONF=
+      with:
+        output-dir: wheelhouse
+        package-dir: interfaces/PyNomad
+
+    - name: Publish to PyPi
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository_url: https://test.pypi.org/legacy/
+        password: ${{ secrets.PYPI_API_TOKEN }}
+        packages_dir: wheelhouse
+        skip_existing: true
+
+
