@@ -29,6 +29,8 @@ jobs:
           NOMAD_BUILD_DIR=../../build/src
           NOMAD_MSVC_FLAG=
           NOMAD_MSVC_CONF=
+        CIBW_BUILD_VERBOSITY: >-
+          3
       with:
         output-dir: wheelhouse
         package-dir: interfaces/PyNomad
