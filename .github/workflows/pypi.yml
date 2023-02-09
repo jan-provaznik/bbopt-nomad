@@ -21,7 +21,7 @@ jobs:
         CIBW_BEFORE_ALL: >-
           cmake -DTEST_OPENMP=OFF -DBUILD_INTERFACE_PYTHON=OFF -DBUILD_EXAMPLES=OFF -S . -B build ; 
           cmake --build build --target clean ;
-          cmake --build build --parllel ;
+          cmake --build build --parallel ;
         CIBW_BEFORE_BUILD: >-
           pip install cython setuptools
         CIBW_ENVIRONMENT: >-
