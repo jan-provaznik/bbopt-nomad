@@ -4,7 +4,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-gcc:
+
+  build:
     strategy:
       fail-fast: false
       matrix:
@@ -14,6 +15,7 @@ jobs:
             archs: AMD64
             cxx: x86_64-w64-mingw32-g++
             cc: x86_64-w64-mingw32-gcc
+            cmake_generator: -G 'MinGW Makefiles'
 
           - name: windows-msvc
             os: windows-latest
@@ -49,7 +51,7 @@ jobs:
         CIBW_PROJECT_REQUIRES_PYTHON: >-
           >=3.10
         CIBW_BEFORE_ALL: >-
-          cmake -DTEST_OPENMP=OFF -DBUILD_INTERFACE_PYTHON=OFF -DBUILD_EXAMPLES=OFF -S . -B build &&
+          cmake ${{ matrix.target.cmake_generator }} -DTEST_OPENMP=OFF -DBUILD_INTERFACE_PYTHON=OFF -DBUILD_EXAMPLES=OFF -S . -B build &&
           cmake --build build --config Release --target clean &&
           cmake --build build --config Release --target nomadStatic &&
           cmake --build build --config Release --target sgtelibStatic
@@ -67,6 +69,21 @@ jobs:
       with:
         output-dir: wheelhouse
         package-dir: interfaces/PyNomad
+
+    - name: Collect wheels
+      uses: actions/upload-artifact@v3
+      with:
+        path: wheelhouse/*.whl
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Collect wheels
+      uses: actions/download-artifact@v3
+      with:
+        name: artifact
+        path: wheelhouse
 
     - name: Publish to PyPi
       uses: pypa/gh-action-pypi-publish@release/v1
