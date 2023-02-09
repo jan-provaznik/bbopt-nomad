@@ -8,11 +8,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        conf: Release
         target:
           - name: windows-gcc
             os: windows-latest
             archs: AMD64
+            conf: Release
             cxx: x86_64-w64-mingw32-g++
             cc: x86_64-w64-mingw32-gcc
 
@@ -22,6 +22,7 @@ jobs:
             cxx: cl
             cc: cl
             msvc: 1
+            conf: Release
             environment_script: "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Auxiliary/Build/vcvars64.bat"
 
           - name: ubuntu-gcc
@@ -29,12 +30,14 @@ jobs:
             archs: x86_64
             cxx: g++
             cc: gcc
+            conf: Release
 
           - name: macos-gcc
             os: macos-latest
             archs: x86_64
             cxx: g++
             cc: gcc
+            conf: Release
 
     runs-on: ${{ matrix.target.os }}
     name: Build binary wheels for ${{ matrix.target.name }} platform with $${{ matrix.targer.conf }} configuration.
@@ -51,8 +54,8 @@ jobs:
           >=3.10
         CIBW_BEFORE_ALL: >-
           cmake -DTEST_OPENMP=OFF -DBUILD_INTERFACE_PYTHON=OFF -DBUILD_EXAMPLES=OFF -S . -B build ; 
-          cmake --build build --target clean ;
-          cmake --build build --target nomadStatic sgtelibStatic;
+          cmake --build build --config ${{ matrix.target.conf }} --target clean ;
+          cmake --build build --config ${{ matrix.target.conf }} --target nomadStatic sgtelibStatic;
         CIBW_BEFORE_BUILD: >-
           pip install cython setuptools
         CIBW_ENVIRONMENT: >-
