@@ -6,8 +6,8 @@ on:
 jobs:
   build-gcc:
     strategy:
+      fail-fast: false
       matrix:
-        fail-fast: false
         config:
           - name: windows-gcc
             os: windows-latest
