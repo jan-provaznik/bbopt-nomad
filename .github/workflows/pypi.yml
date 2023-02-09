@@ -49,10 +49,10 @@ jobs:
         CIBW_PROJECT_REQUIRES_PYTHON: >-
           >=3.10
         CIBW_BEFORE_ALL: >-
-          cmake -DTEST_OPENMP=OFF -DBUILD_INTERFACE_PYTHON=OFF -DBUILD_EXAMPLES=OFF -S . -B build ; 
-          cmake --build build --config Release --target clean ;
-          cmake --build build --config Release --target nomadStatic ;
-          cmake --build build --config Release --target sgtelibStatic ;
+          cmake -DTEST_OPENMP=OFF -DBUILD_INTERFACE_PYTHON=OFF -DBUILD_EXAMPLES=OFF -S . -B build &&
+          cmake --build build --config Release --target clean &&
+          cmake --build build --config Release --target nomadStatic &&
+          cmake --build build --config Release --target sgtelibStatic
         CIBW_BEFORE_BUILD: >-
           pip install cython setuptools
         CIBW_ENVIRONMENT: >-
