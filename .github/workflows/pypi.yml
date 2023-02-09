@@ -7,21 +7,25 @@ jobs:
   build-gcc:
     strategy:
       matrix:
+        fail-fast: false
         config:
           - name: windows-gcc
             os: windows-latest
-            cc: x86_64-w64-mingw32-gcc
+            archs: AMD64
             cxx: x86_64-w64-mingw32-g++
+            cc: x86_64-w64-mingw32-gcc
 
           - name: ubuntu-gcc
             os: ubuntu-latest
-            cc: gcc
+            archs: x86_64
             cxx: g++
+            cc: gcc
 
           - name: macos-gcc
             os: macos-latest
-            cc: gcc
+            archs: x86_64
             cxx: g++
+            cc: gcc
 
     runs-on: ${{ matrix.config.os }}
     name: Build binary wheels for ${{ matrix.config.name }} platform.
@@ -33,7 +37,7 @@ jobs:
       uses: pypa/cibuildwheel@v2.12.0
       env:
         CIBW_ARCHS: >-
-          x86_64
+          ${{ matrix.conf.archs }}
         CIBW_PROJECT_REQUIRES_PYTHON: >-
           >=3.10
         CIBW_BEFORE_ALL: >-
