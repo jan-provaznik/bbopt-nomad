@@ -25,20 +25,21 @@ jobs:
             msvc: 1
             environment_script: "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Auxiliary/Build/vcvars64.bat"
 
-          # - name: ubuntu-gcc
-          #   os: ubuntu-latest
-          #   archs: x86_64
-          #   cxx: g++
-          #   cc: gcc
+          - name: ubuntu-gcc
+            os: ubuntu-latest
+            archs: x86_64
+            cxx: g++
+            cc: gcc
 
-          # - name: macos-gcc
-          #   os: macos-latest
-          #   archs: x86_64
-          #   cxx: g++
-          #   cc: gcc
+          - name: macos-gcc
+            os: macos-latest
+            archs: x86_64
+            cxx: g++
+            cc: gcc
 
-    runs-on: ${{ matrix.target.os }}
     name: Build binary wheels for ${{ matrix.target.name }} platform.
+    runs-on: ${{ matrix.target.os }}
+
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v3
@@ -76,8 +77,10 @@ jobs:
         path: wheelhouse/*.whl
 
   publish:
-    needs: build
+    name: Publish wheels to PyPi
     runs-on: ubuntu-latest
+    needs: build
+
     steps:
     - name: Collect wheels
       uses: actions/download-artifact@v3
