@@ -21,12 +21,12 @@ jobs:
         CIBW_BEFORE_ALL: >-
           cmake -DTEST_OPENMP=OFF -DBUILD_INTERFACE_PYTHON=OFF -DBUILD_EXAMPLES=OFF -S . -B build ; 
           cmake --build build --target clean ;
-          cmake --build build --target nomadStatic --parallel ;
+          cmake --build build --target nomadStatic sgtelibStatic;
         CIBW_BEFORE_BUILD: >-
           pip install cython setuptools
         CIBW_ENVIRONMENT: >-
-          NOMAD_SRC=../..
-          NOMAD_BUILD_DIR=../../build/src
+          NOMAD_SRC=../../src
+          NOMAD_BUILD_DIR=../../build
           NOMAD_MSVC_FLAG=
           NOMAD_MSVC_CONF=
         CIBW_BUILD_VERBOSITY: >-
