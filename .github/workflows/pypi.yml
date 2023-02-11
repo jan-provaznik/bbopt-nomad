@@ -10,25 +10,27 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          - name: windows-msvc
+          - name: Windows
             os: windows-latest
             archs: AMD64
             msvc: 1
 
-          - name: ubuntu-gcc
+          - name: Ubuntu
             os: ubuntu-latest
             archs: x86_64
 
-          - name: macos-gcc
+          - name: macOS
             os: macos-latest
             archs: x86_64
 
-    name: Platform ${{ matrix.target.name }}
+    name: ${{ matrix.target.name }} platform
     runs-on: ${{ matrix.target.os }}
 
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
       - name: Build binary wheels
         uses: pypa/cibuildwheel@v2.12.0
