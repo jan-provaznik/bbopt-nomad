@@ -16,19 +16,19 @@ jobs:
             cxx: cl
             cc: cl
             msvc: 1
-            environment_script: "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Auxiliary/Build/vcvars64.bat"
+            # environment_script: "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Auxiliary/Build/vcvars64.bat"
 
-          - name: ubuntu-gcc
-            os: ubuntu-latest
-            archs: x86_64
-            cxx: g++
-            cc: gcc
+            # - name: ubuntu-gcc
+            #   os: ubuntu-latest
+            #   archs: x86_64
+            #   cxx: g++
+            #   cc: gcc
 
-          - name: macos-gcc
-            os: macos-latest
-            archs: x86_64
-            cxx: g++
-            cc: gcc
+            # - name: macos-gcc
+            #   os: macos-latest
+            #   archs: x86_64
+            #   cxx: g++
+            #   cc: gcc
 
     name: Build for ${{ matrix.target.name }} platform.
     runs-on: ${{ matrix.target.os }}
