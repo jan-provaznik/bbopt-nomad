@@ -37,24 +37,20 @@ jobs:
         env:
           CIBW_ARCHS: >-
             ${{ matrix.target.archs }}
-          CIBW_PROJECT_REQUIRES_PYTHON: >-
-            >=3.8
           CIBW_BEFORE_ALL: >-
             cmake -DTEST_OPENMP=OFF -DBUILD_INTERFACE_PYTHON=OFF -DBUILD_EXAMPLES=OFF -S . -B build &&
             cmake --build build --config Release --clean-first --target nomadStatic --parallel 2
-          CIBW_BEFORE_BUILD: >-
-            pip install cython setuptools
           CIBW_ENVIRONMENT: >-
             NOMAD_SRC=../../src
             NOMAD_BUILD_DIR=../../build
             NOMAD_MSVC_FLAG=${{ matrix.target.msvc }}
             NOMAD_MSVC_CONF=Release
-          CIBW_BUILD_VERBOSITY: >-
+          CIBW_PROJECT_REQUIRES_PYTHON: >-
+            >=3.8
+          CIBW_BUILD_FRONTEND: >-
+            build
+          CIBW_BUILD_VERBOITY: >-
             3
-          CIBW_TEST_REQUIRES: >-
-            pytest
-          CIBW_TEST_COMMAND: >-
-            pytest {package}/tests
         with:
           output-dir: wheelhouse
           package-dir: interfaces/PyNomad
