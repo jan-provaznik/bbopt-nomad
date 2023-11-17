@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -54,25 +54,26 @@
 #include <fstream>
 #include <cstdlib>
 using namespace std;
-/* BB optimisation de l'exemple 3.4 p44 du livre, sans contrainte. point de départ [2,2] minimum de la fonction est censé être le point [2/5 , -1/3]
- */
-int main(int argc, const char ** argv) {
+
+int main(int argc, const char ** argv) 
+{
     
-    double f = 1e20; // pas compris pourquoi on prend cette valeur initiale
+    double f = 1e20; 
     double x[2];
-    if (argc >=2) { // pas compris le rôle de cette ligne
-        
-        ifstream in (argv[1]); // associer le file du point de depart à in
-        for ( int i = 0 ; i < 2 ; i++ ) {
+    if (argc >=2)
+    { 
+        ifstream in (argv[1]); 
+        for ( int i = 0 ; i < 2 ; i++ ) 
+        {
           in >> x[i];
         }
         f = pow (5 * x[0]-2 , 4) + pow (5 * x[0]-2, 2) * pow( x[1] , 2) +pow ( 3 * x[1] + 1 , 2); // calcul de l'ojectif f
 
-        if ( in.fail() ) // Echec de la lecture du fichier
-            f = 1e20; // pas compris pourquoi on prend cette valeur en cas d'echec
+        if ( in.fail() ) 
+            f = 1e20; 
     }
     
-       cout << f << endl ; // retourne que l'objectif car aucune contrainte dans ce problème
-       return 0; // evaluation went well = retourne 0
+       cout << f << endl ; 
+       return 0; 
   }
     

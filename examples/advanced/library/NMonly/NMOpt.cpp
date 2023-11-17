@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -150,9 +150,9 @@ int main (int argc, char **argv)
     
     TheMainStep->setAllParameters(params);
 
-    std::unique_ptr<My_Evaluator> ev(new My_Evaluator(params->getEvalParams()));
-    
-    TheMainStep->setEvaluator(std::move(ev));
+    // Custom Evaluator
+    auto ev = std::make_unique<My_Evaluator>(params->getEvalParams());
+    TheMainStep->addEvaluator(std::move(ev));
     
     try
     {

@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -60,7 +60,7 @@ class My_Evaluator : public NOMAD::Evaluator
 {
 public:
     My_Evaluator(const std::shared_ptr<NOMAD::EvalParameters>& evalParams)
-    : NOMAD::Evaluator(evalParams, NOMAD::EvalType::BB)
+    : NOMAD::Evaluator(evalParams, NOMAD::EvalType::BB) // Evaluator for true blackbox evaluations only
     {}
 
     ~My_Evaluator() {}
@@ -109,7 +109,6 @@ public:
             }
 
             NOMAD::Double c2000 = -f-2000;
-            auto bbOutputType = _evalParams->getAttributeValue<NOMAD::BBOutputTypeList>("BB_OUTPUT_TYPE");
             std::string bbo = g1.tostring();
             bbo += " " + g2.tostring();
             bbo += " " + f.tostring();
@@ -127,6 +126,16 @@ public:
         }
 
         countEval = true;
+
+// Uncomment when testing with failed eval simulation (see display parameters below)
+//        // Simulate failed evaluations
+//        auto bbe = NOMAD::EvcInterface::getEvaluatorControl()->getBbEval();
+//        if(bbe>=9)
+//        {
+//            //Failed eval
+//            eval_ok=false;
+//        }
+
         return eval_ok;
     }
 };
@@ -155,7 +164,13 @@ void initAllParams(std::shared_ptr<NOMAD::AllParameters> allParams)
     allParams->setAttributeValue("BB_OUTPUT_TYPE", bbOutputTypes );
     allParams->setAttributeValue("DIRECTION_TYPE", NOMAD::DirectionType::ORTHO_2N);
     allParams->setAttributeValue("DISPLAY_DEGREE", 2);
-    allParams->setAttributeValue("DISPLAY_UNSUCCESSFUL", false);
+
+// Uncomment when testing with failed eval simulation (see eval_x function)
+//    allParams->set_DISPLAY_ALL_EVAL(true);
+//    allParams->setAttributeValue("DISPLAY_FAILED", true);
+//    allParams->setAttributeValue("DISPLAY_UNSUCCESSFUL", true);
+//    allParams->setAttributeValue("STATS_FILE", NOMAD::ArrayOfString("stats.txt bbe obj")); //"stats.txt obj mesh_size success_type"
+//    allParams->setAttributeValue("EVAL_STATS_FILE", std::string("statsEnd.txt"));
 
     // Parameters validation
     allParams->checkAndComply();
@@ -171,15 +186,16 @@ int main (int argc, char **argv)
 
     NOMAD::MainStep TheMainStep;
 
-    auto params = std::make_shared<NOMAD::AllParameters>();
-    initAllParams(params);
-    TheMainStep.setAllParameters(params);
-
-    std::unique_ptr<My_Evaluator> ev(new My_Evaluator(params->getEvalParams()));
-    TheMainStep.setEvaluator(std::move(ev));
-
     try
     {
+        auto params = std::make_shared<NOMAD::AllParameters>();
+        initAllParams(params);
+        TheMainStep.setAllParameters(params);
+        
+        auto ev = std::make_unique<My_Evaluator>(params->getEvalParams());
+        TheMainStep.addEvaluator(std::move(ev));
+        
+        
         TheMainStep.start();
         TheMainStep.run();
         TheMainStep.end();

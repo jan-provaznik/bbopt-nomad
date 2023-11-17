@@ -5,7 +5,7 @@ BB_EXE         '$/opt/homebrew/bin/mpirun $-np $4 bb4.exe'   # WARNING Adjust th
                                                          
 
 BB_MAX_BLOCK_SIZE 20 
-MEGA_SEARCH_POLL yes
+MEGA_SEARCH_POLL yes    # Generate search and poll trial points before evaluation
 
 
 BB_OUTPUT_TYPE OBJ PB PB
