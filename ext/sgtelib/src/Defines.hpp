@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------------------*/
 /*  sgtelib - A surrogate model library for derivative-free optimization               */
-/*  Version 2.0.2                                                                      */
+/*  Version 2.0.3                                                                      */
 /*                                                                                     */
 /*  Copyright (C) 2012-2017  Sebastien Le Digabel - Ecole Polytechnique, Montreal      */ 
 /*                           Bastien Talgorn - McGill University, Montreal             */
@@ -36,7 +36,7 @@
 #include <limits.h>
 
 // CASE Visual Studio C++ compiler
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(NOMAD_STATIC_BUILD)
 #pragma warning(disable:4251)
 #ifdef DLL_EXPORTS
 #define DLL_API __declspec(dllexport) 

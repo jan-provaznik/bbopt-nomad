@@ -8,8 +8,13 @@
 # cmake version : the latest one
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 
+set(SGTELIB_VERSION_MAJOR 2)
+set(SGTELIB_VERSION_MINOR 0)
+set(SGTELIB_VERSION_PATCH 4)
+set(SGTELIB_VERSION ${SGTELIB_VERSION_MAJOR}.${SGTELIB_VERSION_MINOR}.${SGTELIB_VERSION_PATCH})
+
 # name of the project
-project (sgtelib LANGUAGES CXX VERSION 2.0.2)
+project (sgtelib LANGUAGES CXX VERSION ${SGTELIB_VERSION})
 
 # Disable in-source builds to prevent source tree corruption.
 if(" ${CMAKE_SOURCE_DIR}" STREQUAL " ${CMAKE_BINARY_DIR}")
@@ -98,37 +103,18 @@ set(SGTELIB_MAIN_SOURCE src/sgtelib.cpp)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-# build shared library sgtelib
-add_library (sgtelib SHARED ${SGTELIB_SOURCES})
-target_include_directories(sgtelib PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/sgtelib>
-    )
+# Build shared libraries (sgtelib)
+include(./CMakeListsLibs.txt)
 
-# export symbols on Windows
-if (WIN32)
-    target_compile_definitions(sgtelib PRIVATE -DDLL_EXPORTS)
-endif()
+# Build static libraries (sgtelibStatic)
+include(./CMakeListsLibsStatic.txt)
 
-add_executable (sgtelib_main ${SGTELIB_MAIN_SOURCE})
-set_target_properties(sgtelib_main PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
-target_include_directories(sgtelib_main PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/sgtelib>
-)
-target_link_libraries(sgtelib_main PUBLIC sgtelib)
-
-# installing executables and libraries
-install(TARGETS sgtelib_main sgtelib 
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/sgtelib
-    )
 
 # install header files
-install(FILES ${SGTELIB_HEADERS}
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/sgtelib
-    )
+install(
+  FILES ${SGTELIB_HEADERS}
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/sgtelib
+)
 
 
 
