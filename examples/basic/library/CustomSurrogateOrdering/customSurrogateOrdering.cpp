@@ -208,7 +208,7 @@ int main ( int argc , char ** argv )
     // Custom SURROGATE evaluator creation
     auto evSurrogate = std::make_unique<My_Surrogate_Evaluator>(params->getEvalParams());
     TheMainStep.addEvaluator(std::move(evSurrogate));
-    // Warning: Need to set ordering with surrogate to use the surrogate
+    // Warning: Need to set ordering with surrogate to use the surrogate. See EVAL_QUEUE_SORT parameter set above.
 
     // The run
     TheMainStep.start();
