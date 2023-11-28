@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -157,8 +157,7 @@ void NOMAD::CSMesh::updatedeltaMeshSize()
 
 // In the CS algorithm, the mesh is never enlarged.
 // Return value: always false because the mesh never changes.
-bool NOMAD::CSMesh::enlargeDeltaFrameSize(const NOMAD::Direction& direction,const Double& anisotropyFactor ,
-                                          bool anisotropicMesh)
+bool NOMAD::CSMesh::enlargeDeltaFrameSize(const NOMAD::Direction& direction)
 {
     return false;
 }

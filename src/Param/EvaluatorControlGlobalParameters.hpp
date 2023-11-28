@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -44,8 +44,8 @@
 /*                                                                                 */
 /*  You can find information on the NOMAD software at www.gerad.ca/nomad           */
 /*---------------------------------------------------------------------------------*/
-#ifndef __NOMAD_4_2_EVALUATORCONTROLGLOBALPARAMETERS__
-#define __NOMAD_4_2_EVALUATORCONTROLGLOBALPARAMETERS__
+#ifndef __NOMAD_4_4_EVALUATORCONTROLGLOBALPARAMETERS__
+#define __NOMAD_4_4_EVALUATORCONTROLGLOBALPARAMETERS__
 
 #include "../Param/Parameters.hpp"
 #include "../Param/PbParameters.hpp"
@@ -57,7 +57,7 @@
 - Register all parameters during construction.
 - Implement the checkAndComply function for sanity check.
 */
-class EvaluatorControlGlobalParameters final : public Parameters
+class DLL_UTIL_API EvaluatorControlGlobalParameters final : public Parameters
 {
 public:
 
@@ -69,6 +69,7 @@ public:
 
     /// Check the sanity of parameters.
     void checkAndComply( const std::shared_ptr<PbParameters> pbParams = nullptr);
+
 
 private:
 
@@ -82,5 +83,5 @@ private:
 
 #include "../nomad_nsend.hpp"
 
-#endif // __NOMAD_4_2_EVALUATORCONTROLGLOBALPARAMETERS__
+#endif // __NOMAD_4_4_EVALUATORCONTROLGLOBALPARAMETERS__
 

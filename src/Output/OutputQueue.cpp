@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -240,7 +240,7 @@ void NOMAD::OutputQueue::setDisplayDegree(const int displayDegree)
     }
     else
     {
-        std::cerr << "Unrecognized display degree to set: " << displayDegree << std::endl;
+        std::cout << "Unrecognized display degree to set: " << displayDegree << std::endl;
     }
 
     _maxOutputLevel = outputLevel;
@@ -424,6 +424,7 @@ void NOMAD::OutputQueue::flushStatsToStdout(const NOMAD::StatsInfo *statsInfo)
         throw NOMAD::Exception(__FILE__, __LINE__, "OutputQueue: Display Parameters are NULL");
     }
 
+    bool displayFailed      = _params->getAttributeValue<bool>("DISPLAY_FAILED");
     bool displayInfeasible      = _params->getAttributeValue<bool>("DISPLAY_INFEASIBLE");
     bool displayUnsuccessful    = _params->getAttributeValue<bool>("DISPLAY_UNSUCCESSFUL");
     bool displayAllEval         = _params->getAttributeValue<bool>("DISPLAY_ALL_EVAL");
@@ -434,7 +435,7 @@ void NOMAD::OutputQueue::flushStatsToStdout(const NOMAD::StatsInfo *statsInfo)
         displayHeaderFreq = NOMAD::INF_SIZE_T;
     }
     auto displayStatsFormat     = _params->getAttributeValue<NOMAD::ArrayOfString>("DISPLAY_STATS");
-    bool displayInteresting     = statsInfo->alwaysDisplay(displayInfeasible, displayUnsuccessful, false);
+    bool displayInteresting     = statsInfo->alwaysDisplay(displayFailed, displayInfeasible, displayUnsuccessful, false);
 
     if (displayAllEval || displayInteresting)
     {
@@ -500,7 +501,7 @@ void NOMAD::OutputQueue::initStatsFile()
         _statsStream.open(_statsFile.c_str(), std::ofstream::out | std::ios::trunc);
         if (_statsStream.fail())
         {
-            std::cerr << "Warning: could not open stats file " << _statsFile << std::endl;
+            std::cout << "Warning: could not open stats file " << _statsFile << std::endl;
         }
         _statsStream.setf(std::ios::fixed);
         // Set full precision on stats file.
@@ -524,9 +525,10 @@ void NOMAD::OutputQueue::flushStatsToStatsFile(const NOMAD::StatsInfo *statsInfo
     // Display this statsInfo (to standard output and to stats file)
     // only if parameter DISPLAY_ALL_EVAL is true, and if it
     // is interesting to display.
+    bool displayFailed          = _params->getAttributeValue<bool>("DISPLAY_FAILED");
     bool displayInfeasible      = _params->getAttributeValue<bool>("DISPLAY_INFEASIBLE");
     bool displayUnsuccessful    = _params->getAttributeValue<bool>("DISPLAY_UNSUCCESSFUL");
-    bool displayInteresting     = statsInfo->alwaysDisplay(displayInfeasible, displayUnsuccessful, true);
+    bool displayInteresting     = statsInfo->alwaysDisplay(displayFailed, displayInfeasible, displayUnsuccessful, true);
     auto n = _params->getAttributeValue<NOMAD::ArrayOfDouble>("SOL_FORMAT").size();
     NOMAD::ArrayOfDouble solFormatStats(n, NOMAD::DISPLAY_PRECISION_FULL);
 

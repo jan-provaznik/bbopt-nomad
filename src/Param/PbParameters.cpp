@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -588,11 +588,11 @@ void NOMAD::PbParameters::setMinMeshParameters(const std::string &paramName)
 
     // minArray = either min mesh size (\delta_min) or min frame size (\Delta min).
     auto minArray = getAttributeValueProtected<NOMAD::ArrayOfDouble>(paramName,false);
-
+    
     if (!minArray.isDefined())
     {
         // Default values: granularity if it is > 0, epsilon otherwise.
-        minArray = NOMAD::ArrayOfDouble(n, 1E-30);  // This is a temporarty criterion.  Use mesh index in the future.
+        minArray = NOMAD::ArrayOfDouble(n, 0);  
         for (size_t i = 0 ; i < n ; ++i)
         {
             if (0.0 < granularity[i])
@@ -614,20 +614,25 @@ void NOMAD::PbParameters::setMinMeshParameters(const std::string &paramName)
 
         for (size_t i = 0 ; i < n ; ++i)
         {
-            if (minArray[i].isDefined() && minArray[i].todouble() <= 0.0)
+            if (minArray[i].isDefined() && minArray[i].todouble() < 0.0)
             {
                 std::string err = "Check: invalid value for parameter " + paramName;
                 throw NOMAD::InvalidParameter(__FILE__, __LINE__, err);
             }
             else if (!minArray[i].isDefined()
-                     || minArray[i].todouble() < 1E-30
                      || (0.0 < granularity[i] && minArray[i].todouble() < granularity[i]) )
             {
                 // Set default value
-                minArray[i] = 1E-30;
                 if (0.0 < granularity[i])
                 {
                     minArray[i] = granularity[i];
+                }
+                else
+                {
+                    std::ostringstream oss;
+                    oss << "Error: granularity is defined with a negative value." ;
+                    oss << " Granularity = " << granularity ;
+                    throw NOMAD::InvalidParameter(__FILE__,__LINE__, oss.str());
                 }
             }
         }
@@ -702,7 +707,7 @@ void NOMAD::PbParameters::setInitialMeshParameters()
             if (initialFrameSize[i].isDefined() && warningInitialFrameSizeReset)
             {
                 warningInitialFrameSizeReset = false;
-                std::cerr << "Warning: initial frame size reset from initial mesh." << std::endl;
+                std::cout << "Warning: initial frame size reset from initial mesh." << std::endl;
             }
             initialFrameSize[i] = initialMeshSize[i] * pow(n, 0.5);
             // Adjust value with granularity
@@ -789,7 +794,7 @@ void NOMAD::PbParameters::setInitialMeshParameters()
         std::string err = "Warning: initial mesh size reset from initial frame size.\n";
         err += "INITIAL_MESH_SIZE: " + initialMeshSize.display() + "\n";
         err += "INITIAL_FRAME_SIZE: " + initialFrameSize.display() + "\n";
-        std::cerr << err;
+        std::cout << err;
 
         // Show the warning only once.
         _showWarningMeshSizeRedefined = false;

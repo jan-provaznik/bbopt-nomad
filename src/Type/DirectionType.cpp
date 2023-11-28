@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -172,11 +172,13 @@ NOMAD::DirectionType NOMAD::stringToDirectionType(const std::list<std::string> &
     if ( s == "LT" )
     {
         throw NOMAD::Exception(__FILE__, __LINE__, "LT direction type not yet supported");
+
     }
 
     // GPS:
     if ( s == "GPS" )
     {
+
         throw NOMAD::Exception(__FILE__, __LINE__, "GPS direction type not yet supported");
     }
 

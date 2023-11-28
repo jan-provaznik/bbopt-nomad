@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -112,7 +112,7 @@ void NOMAD::LH::generateTrialPointsImp()
 
     // Create a mesh and project points on this mesh. It will ensure that parameters
     // BB_INPUT_TYPE and GRANULARITY are satisfied.
-    auto mesh = std::make_shared<NOMAD::GMesh>(_pbParams);
+    auto mesh = std::make_shared<NOMAD::GMesh>(_pbParams, _runParams);
     mesh->setEnforceSanityChecks(false);
     // Modify mesh so it is the finest possible.
     // Note: GRANULARITY is already adjusted with regards to BB_INPUT_TYPE.
@@ -133,7 +133,10 @@ void NOMAD::LH::generateTrialPointsImp()
     for (auto point : pointVector)
     {
         // First, project on mesh.
-        point = mesh->projectOnMesh(point, center);
+        if (_runParams->getAttributeValue<bool>("SEARCH_METHOD_MESH_PROJECTION"))
+        {
+            point = mesh->projectOnMesh(point, center);
+        }
         // Second, snap to bounds.
         point.snapToBounds(lowerBound, upperBound);
 
@@ -171,7 +174,7 @@ bool NOMAD::LH::runImp()
     auto evalType = NOMAD::EvalType::BB;
     if (nullptr != evc)
     {
-        evalType = evc->getEvalType();
+        evalType = evc->getCurrentEvalType();
     }
     for (auto trialPoint : _trialPoints)
     {

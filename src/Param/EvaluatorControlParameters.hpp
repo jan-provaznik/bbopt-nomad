@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -44,8 +44,8 @@
 /*                                                                                 */
 /*  You can find information on the NOMAD software at www.gerad.ca/nomad           */
 /*---------------------------------------------------------------------------------*/
-#ifndef __NOMAD_4_2_EVALUATORCONTROLPARAMETERS__
-#define __NOMAD_4_2_EVALUATORCONTROLPARAMETERS__
+#ifndef __NOMAD_4_4_EVALUATORCONTROLPARAMETERS__
+#define __NOMAD_4_4_EVALUATORCONTROLPARAMETERS__
 
 
 #include "../Param/Parameters.hpp"
@@ -58,7 +58,7 @@
 - Register all parameters during construction.
 - Implement the checkAndComply function for sanity check.
 */
-class EvaluatorControlParameters final : public Parameters
+class DLL_UTIL_API EvaluatorControlParameters final : public Parameters
 {
 public:
 
@@ -98,5 +98,5 @@ private:
 
 #include "../nomad_nsend.hpp"
 
-#endif // __NOMAD_4_2_EVALUATORCONTROLPARAMETERS__
+#endif // __NOMAD_4_4_EVALUATORCONTROLPARAMETERS__
 

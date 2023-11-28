@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -72,6 +72,11 @@ int NOMAD::AllParameters::get_max_bb_eval() const
     return n3_max_bb_eval;
 }
 
+
+void NOMAD::AllParameters::set_MAX_BB_EVAL(size_t bbe)
+{
+    setAttributeValue("MAX_BB_EVAL", bbe );
+}
 
 void NOMAD::AllParameters::set_MAX_BB_EVAL(int bbe)
 {

@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -52,15 +52,16 @@
  \see    RNG.cpp
  */
 
-#ifndef __NOMAD_4_2_RNG__
-#define __NOMAD_4_2_RNG__
+#ifndef __NOMAD_4_4_RNG__
+#define __NOMAD_4_4_RNG__
 
-#include "../nomad_platform.hpp"
+
 #include "../Util/defines.hpp"
 #include "../Util/Exception.hpp"
 
 using namespace std;
 
+#include "../nomad_platform.hpp"
 #include "../nomad_nsbegin.hpp"
 
 
@@ -91,13 +92,21 @@ public:
      * The set seed works like a reset. The private seed used by RNG is always reset.
      \param s   The seed -- \b IN.
      */
-    static void setSeed(int s);
+	DLL_UTIL_API static void setSeed(int s);
+    
+    
+    /// Reset RNG state
+    /**
+     - reset the private seed to default.
+     - set the rng state for the current seed
+     */
+	DLL_UTIL_API static void reset();
 
     /// Get a random integer
     /**
      \return    An integer in the interval [0,UINT32_MAX].
      */
-    static result_type rand();
+	DLL_UTIL_API static result_type rand();
 
     /// Functor to get a random integer
     /**
@@ -111,7 +120,7 @@ public:
      \param b   Upper bound  -- \b IN.
      \return    A double in the interval [a,b].
      */
-    static double rand(double a, double b)
+	static double rand(double a, double b)
     {
         return a+((b-a)*RNG::rand())/UINT32_MAX;
     }
@@ -196,7 +205,7 @@ public:
 private:
 
     DLL_UTIL_API static uint32_t x_def, y_def, z_def;    ///< Initial values for the random number generator
-    DLL_UTIL_API static uint32_t _x, _y, _z;             ///< Current values for the random number generator
+	DLL_UTIL_API static uint32_t _x, _y, _z;             ///< Current values for the random number generator
 
     DLL_UTIL_API static int _s;
 
@@ -206,4 +215,4 @@ private:
 #include "../nomad_nsend.hpp"
 
 
-#endif // __NOMAD_4_2_RNG__
+#endif // __NOMAD_4_4_RNG__

@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -44,8 +44,8 @@
 /*                                                                                 */
 /*  You can find information on the NOMAD software at www.gerad.ca/nomad           */
 /*---------------------------------------------------------------------------------*/
-#ifndef __NOMAD_4_2_STOPREASON__
-#define __NOMAD_4_2_STOPREASON__
+#ifndef __NOMAD_4_4_STOPREASON__
+#define __NOMAD_4_4_STOPREASON__
 
 #include <map>
 #include "../Util/Exception.hpp"
@@ -65,15 +65,17 @@ enum class BaseStopType : int
     UNKNOWN_STOP_REASON     ,  ///< Unknown
     CTRL_C                  ,  ///< Ctrl-C
     HOT_RESTART             ,  ///< Hot restart interruption
-    USER_STOPPED            ,  ///< User-stopped in a callback function
+    USER_GLOBAL_STOP        ,  ///< Global user stop in a callback function
     LAST
 };
 
-/// Stop type that can happend during MADS
+/// Stop type that can happen during MADS
 enum class MadsStopType : int
 {
     STARTED                 ,  ///< Started (no stop)
     MESH_PREC_REACHED       ,  ///< Mesh minimum precision stop criterion
+    MAX_MESH_INDEX_REACHED   ,  ///< Max mesh index stop criterion (large index->large mesh size)
+    MIN_MESH_INDEX_REACHED   ,  ///< Min mesh index stop criterion (small index->small mesh size)
     MIN_MESH_SIZE_REACHED   ,  ///< Min mesh size stop criterion
     MIN_FRAME_SIZE_REACHED   , ///< Min frame size stop criterion
     X0_FAIL                 ,  ///< Problem with starting point evaluation
@@ -161,6 +163,35 @@ enum class NMStopType : int
     LAST
 };
 
+/// Stop type for Template Algorithm
+/**
+ \todo check the stop type
+ */
+enum class RandomAlgoStopType : int
+{
+    STARTED                     ,  ///< Started (no stop)
+    UNDEFINED_STEP              ,
+    INITIAL_FAILED              ,   ///< Algo initialization failed
+    UPDATE_FAILED              ,   ///< Algo initialization failed
+    X0_FAILED                   ,
+    ALL_POINTS_EVALUATED        ,  ///< No more points to evaluate
+    SINGLE_PASS_COMPLETED       ,  ///< A single pass has been completed
+    LAST
+};
+
+/// Stop type for Simple Line Search
+/**
+ \todo check the stop type
+ */
+enum class SimpleLineSearchStopType : int
+{
+    STARTED                     ,  ///< Started (no stop)
+    SPECULATIVE_SUCCESSFUL      ,   ///< Algo initialization failed                  ,
+    ALL_POINTS_EVALUATED        ,  ///< No more points to evaluate
+    LAST
+};
+
+
 /// Stop type for VNS
 enum class VNSStopType : int
 {
@@ -182,6 +213,7 @@ enum class EvalGlobalStopType : int
     MAX_SURROGATE_EVAL_OPTIMIZATION_REACHED,///< Max number of static surrogate evaluations
     MAX_EVAL_REACHED        ,  ///< Max number of total evaluations
     MAX_BLOCK_EVAL_REACHED  ,  ///< Max number of block eval reached
+    CUSTOM_GLOBAL_STOP  ,  ///< Custom global stop detected via callback
     LAST
 };
 
@@ -193,6 +225,7 @@ enum class EvalMainThreadStopType : int
     LAP_MAX_BB_EVAL_REACHED,   ///< Max number of blackbox evaluations for a sub algorithm run (lap run)
     SUBPROBLEM_MAX_BB_EVAL_REACHED,   ///< Max number of blackbox evaluations for a subproblem run (E.g. SSD-Mads)
     OPPORTUNISTIC_SUCCESS   ,  ///< Success found and opportunistic strategy is used
+    CUSTOM_OPPORTUNISTIC_STOP,  ///< Custom opportunistic stop has been detected via a callback
     EMPTY_LIST_OF_POINTS    ,  ///< Tried to eval an empty list
     ALL_POINTS_EVALUATED    ,  ///< No more points to evaluate
     MAX_MODEL_EVAL_REACHED  ,  ///< Max number of quad or sgtelib model evaluations
@@ -207,6 +240,8 @@ enum class IterStopType : int
     MAX_ITER_REACHED        ,  ///< Max number of iterations
     STOP_ON_FEAS            ,  ///< Stop because a feasible point is reached
     PHASE_ONE_COMPLETED     ,  ///< Stop because PhaseOne is done
+    USER_ITER_STOP         ,  ///< Local (iter) user stop
+    USER_ALGO_STOP         ,  ///< Local (algo) user stop
     LAST
 };
 
@@ -345,4 +380,4 @@ public:
 
 #include "../nomad_nsend.hpp"
 
-#endif // __NOMAD_4_2_STOPREASON__
+#endif // __NOMAD_4_4_STOPREASON__

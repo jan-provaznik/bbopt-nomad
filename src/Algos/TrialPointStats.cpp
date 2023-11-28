@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -56,7 +56,7 @@
 #include "../Algos/TrialPointStats.hpp"
 
 #ifdef _OPENMP
-omp_lock_t NOMAD::TrialPointStats::_updateLock;
+omp_lock_t NOMAD::TrialPointStats::_updateLock  ;
 #endif
 
 void NOMAD::TrialPointStats::init()
@@ -68,10 +68,6 @@ void NOMAD::TrialPointStats::init()
     
     initializeMap(_nbTotalTrialPointsGenerated);
     initializeMap(_nbCurrentTrialPointsGenerated);
-    
-#ifdef _OPENMP
-    omp_init_lock(&_updateLock);
-#endif
     
 }
 
@@ -87,14 +83,20 @@ void NOMAD::TrialPointStats::initializeMap(std::map<EvalType, size_t> & counter)
 
 void NOMAD::TrialPointStats::incrementEvalsDone(size_t nb, EvalType evalType)
 {
-    _nbTotalEvalsDone.at(evalType) += nb;
-    _nbCurrentEvalsDone.at(evalType) += nb;
+    if ( evalType < NOMAD::EvalType::LAST)
+    {
+        _nbTotalEvalsDone.at(evalType) += nb;
+        _nbCurrentEvalsDone.at(evalType) += nb;
+    }
 }
 
 void NOMAD::TrialPointStats::incrementTrialPointsGenerated(size_t nb, EvalType evalType)
 {
-    _nbTotalTrialPointsGenerated.at(evalType) += nb;
-    _nbCurrentTrialPointsGenerated.at(evalType) += nb;
+    if ( evalType < NOMAD::EvalType::LAST)
+    {
+        _nbTotalTrialPointsGenerated.at(evalType) += nb;
+        _nbCurrentTrialPointsGenerated.at(evalType) += nb;
+    }
 }
 
 size_t NOMAD::TrialPointStats::getNbTrialPointsGenerated(EvalType evalType, bool totalCount) const
@@ -149,6 +151,7 @@ void NOMAD::TrialPointStats::updateParentStats()
         {
             auto iu = dynamic_cast<NOMAD::IterationUtils*>(step);
             #ifdef _OPENMP
+			    omp_init_lock(&_updateLock);
                 omp_set_lock(&_updateLock);
             #endif // _OPENMP
                 iu->updateStats(*this);
@@ -161,6 +164,7 @@ void NOMAD::TrialPointStats::updateParentStats()
         {
             auto algo = dynamic_cast<NOMAD::Algorithm*>(step);
             #ifdef _OPENMP
+			    omp_init_lock(&_updateLock);
                 omp_set_lock(&_updateLock);
             #endif // _OPENMP
                 algo->updateStats(*this);

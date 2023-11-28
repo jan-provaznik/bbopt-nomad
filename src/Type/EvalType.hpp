@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -52,20 +52,21 @@
  \see    EvalType.cpp
  */
 
-#ifndef __NOMAD_4_2_EVAL_TYPE__
-#define __NOMAD_4_2_EVAL_TYPE__
+#ifndef __NOMAD_4_4_EVAL_TYPE__
+#define __NOMAD_4_4_EVAL_TYPE__
 
 #include <sstream>
 
+#include "../nomad_platform.hpp"
 #include "../nomad_nsbegin.hpp"
 
 // Evaluator type
 enum class EvalType
 {
     BB,                 ///< The evaluator is a blackbox.
-    MODEL,              ///< The evaluator is a model function,
-                        /// potentially much faster to run than a blackbox.
     SURROGATE,          ///< The evaluator is a static surrogate,
+                        /// potentially much faster to run than a blackbox.
+    MODEL,              ///< The evaluator is a model function,
                         /// potentially much faster to run than a blackbox.
     LAST,               ///< For iterations; Note: UNDEFINED evals are ignored.
     UNDEFINED           ///< Undefined: This value may be used when the
@@ -75,10 +76,10 @@ enum class EvalType
 
 // Convert a string (ex "BB", "MODEL")
 // to an EvalType.
-EvalType stringToEvalType(const std::string &s);
+DLL_UTIL_API EvalType stringToEvalType(const std::string &s, bool noException = false );
 
 // Convert an EvalType to a string
-std::string evalTypeToString(EvalType evalType);
+DLL_UTIL_API std::string evalTypeToString(EvalType evalType);
 
 
 inline std::ostream& operator<<(std::ostream& out, EvalType evalType)
@@ -89,4 +90,4 @@ inline std::ostream& operator<<(std::ostream& out, EvalType evalType)
 
 
 #include "../nomad_nsend.hpp"
-#endif  // __NOMAD_4_2_EVAL_TYPE__
+#endif  // __NOMAD_4_4_EVAL_TYPE__

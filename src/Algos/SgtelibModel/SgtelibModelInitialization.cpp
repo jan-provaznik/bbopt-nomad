@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -51,6 +51,7 @@
 #include "../../Algos/SubproblemManager.hpp"
 #include "../../Algos/SgtelibModel/SgtelibModelInitialization.hpp"
 #include "../../Cache/CacheBase.hpp"
+#include "../../Eval/ProgressiveBarrier.hpp"
 #include "../../Output/OutputQueue.hpp"
 
 void NOMAD::SgtelibModelInitialization::init()
@@ -204,17 +205,19 @@ bool NOMAD::SgtelibModelInitialization::eval_x0s()
         }
         else
         {
-            AddOutputError("X0 evaluation failed for X0 = " + x0.display());
+            AddOutputError("Evaluation failed for X0 = " + x0.display());
         }
     }
 
     if (evalOk)
     {
-        // Construct barrier using x0s
+        // Construct progressive barrier using x0s
         auto hMax = _runParams->getAttributeValue<NOMAD::Double>("H_MAX_0");
-        _barrier = std::make_shared<NOMAD::Barrier>(hMax,
+        _barrier = std::make_shared<NOMAD::ProgressiveBarrier>(hMax,
                                 NOMAD::SubproblemManager::getInstance()->getSubFixedVariable(this),
-                                evc->getEvalType(), evc->getComputeType(), evalPointList);
+                                evc->getCurrentEvalType(),
+                                evc->getComputeType(),
+                                evalPointList);
     }
     else
     {

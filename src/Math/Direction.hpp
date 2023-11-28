@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -52,12 +52,13 @@
  \see    Direction.cpp
  */
 
-#ifndef __NOMAD_4_2_DIRECTION__
-#define __NOMAD_4_2_DIRECTION__
+#ifndef __NOMAD_4_4_DIRECTION__
+#define __NOMAD_4_4_DIRECTION__
 
 #include <numeric>
 #include "../Math/ArrayOfDouble.hpp"
 
+#include "../nomad_platform.hpp"
 #include "../nomad_nsbegin.hpp"
 
 /// Type of norm
@@ -73,7 +74,7 @@ enum class NormType
 /**
  A direction is defined by its size and its coordinates from ArrayOfDouble. In addition, it provides functions to calculate different norms, dot product and cosinus of the angle between two directions.
 */
-class Direction : public ArrayOfDouble
+class DLL_UTIL_API Direction : public ArrayOfDouble
 {
 public:
     /*-------------*/
@@ -171,7 +172,12 @@ public:
      */
     static void computeDirOnUnitSphere(Direction &randomDir);
 
-
+    /// Compute a random direction in a unit N-Sphere
+    /**
+     \param randomDir of the desired dimension -- \b IN/OUT
+     */
+    static void computeDirInUnitSphere(Direction &randomDir);
+    
     /// Householder transformation
     /** Householder transformation to generate n directions from a given direction. Also computes H[i+n] = -H[i] (completion to 2n directions).
     \param dir given direciton -- \b IN.
@@ -185,7 +191,7 @@ public:
 };
 
 /// Inverse operator.
-Direction operator-(const Direction &dir);
+DLL_UTIL_API Direction operator-(const Direction &dir);
 
 /// Display of \c Direction
 /**
@@ -193,8 +199,8 @@ Direction operator-(const Direction &dir);
  \param out  Reference to stream -- \b IN.
  \return     Reference to stream.
  */
-std::ostream& operator<< (std::ostream& out, const Direction& d);
+DLL_UTIL_API std::ostream& operator<< (std::ostream& out, const Direction& d);
 
 
 #include "../nomad_nsend.hpp"
-#endif // __NOMAD_4_2_DIRECTION__
+#endif // __NOMAD_4_4_DIRECTION__

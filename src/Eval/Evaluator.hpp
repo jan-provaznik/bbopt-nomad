@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -52,14 +52,15 @@
  \see    Evaluator.cpp
  */
 
-#ifndef __NOMAD_4_2_EVALUATOR__
-#define __NOMAD_4_2_EVALUATOR__
+#ifndef __NOMAD_4_4_EVALUATOR__
+#define __NOMAD_4_4_EVALUATOR__
 
 #include "../Eval/BBOutput.hpp"
 #include "../Eval/EvalPoint.hpp"
 #include "../Param/EvalParameters.hpp"
 #include "../Type/EvalType.hpp"
 
+#include "../nomad_platform.hpp"
 #include "../nomad_nsbegin.hpp"
 
 /// Enum for the type of Evaluator.
@@ -67,7 +68,8 @@ enum class EvalXDefined
 {
     EVAL_BLOCK_DEFINED_BY_USER, ///< User redefined eval_block() in library mode; Default value
     EVAL_X_DEFINED_BY_USER,     ///< User redefined eval_x() in library mode
-    USE_BB_EVAL                 ///< Neither eval_x() nor eval_block() were redefined by library mode. An external executable is provided.
+    USE_BB_EVAL,                 ///< Neither eval_x() nor eval_block() were redefined by library mode. An external executable is provided.
+    UNDEFINED                    ///< For a fake evaluator
 };
 
 
@@ -79,22 +81,33 @@ enum class EvalXDefined
  * To evaluate a block of points, the user must redefine Evaluator::eval_block() or make sure the external executable can evaluate all the provided points. /n
  *
  */
-class Evaluator
+class DLL_EVAL_API Evaluator
 {
 protected:
-    std::shared_ptr<EvalParameters>                 _evalParams;    ///< The parameters controlling the behavior of the evaluator
+    const std::shared_ptr<EvalParameters>                 _evalParams;    ///< The parameters controlling the behavior of the evaluator
+    
+    const EvalType _evalType;
+    
+    const BBOutputTypeList _bbOutputTypeList;
+    
 
 private:
-    DLL_EVAL_API static std::vector<std::string>    _tmpFiles;      ///< One file per thread.
+       
 
     /// Did the user redefine eval_x() for single point, or should we use BB_EXE ?
+    /// A fake evaluator has the type UNDEFINED.
     mutable EvalXDefined _evalXDefined;
 
     /** If we are using MODEL, it means EvalPoint's model evaluation needs to be updated.
      *  If we are using BB, the blackbox evaluation is updated.
      */
-    const EvalType _evalType;
-
+    
+    std::string    _bbExe;
+    
+    static bool   _bbRedirection;
+    
+    const ArrayOfDouble _bbEvalFormat;
+    
 public:
 
     /// Constructor
@@ -104,7 +117,7 @@ public:
      \param evalXDefined    Flag.
      */
     explicit Evaluator(const std::shared_ptr<EvalParameters> &evalParams,
-                       EvalType evalType = EvalType::BB,
+                       EvalType evalType,
                        EvalXDefined evalXDefined = EvalXDefined::EVAL_BLOCK_DEFINED_BY_USER);
 
     /// Destructor.
@@ -119,11 +132,13 @@ public:
     /*---------*/
     /* Get/Set */
     /*---------*/
-    std::shared_ptr<EvalParameters> getEvalParams() const
+    const std::shared_ptr<EvalParameters> getEvalParams() const
     {
         return _evalParams;
     }
 
+    const ArrayOfDouble & getBBEvalFormat() const { return _bbEvalFormat; }
+    
     const EvalType& getEvalType() const { return _evalType; }
 
     /*---------------*/
@@ -157,8 +172,17 @@ public:
     virtual std::vector<bool> eval_block(Block &block,
                                          const Double &hMax,
                                          std::vector<bool> &countEval) const;
+    
+    /// Access to bb output types
+    const BBOutputTypeList & getBBOutputTypeList() const { return _bbOutputTypeList ; }
+    
+    EvalXDefined getEvalXDefined() const { return _evalXDefined; }
 
 private:
+    
+    /// Helper for constructor
+    void init();
+    
     /// Helper for eval_block()
     virtual std::vector<bool> evalXBBExe(Block &block,
                                          const Double &hMax,
@@ -169,4 +193,4 @@ typedef std::shared_ptr<Evaluator> EvaluatorPtr;
 
 #include "../nomad_nsend.hpp"
 
-#endif // __NOMAD_4_2_EVALUATOR__
+#endif // __NOMAD_4_4_EVALUATOR__

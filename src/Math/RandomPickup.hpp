@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -52,14 +52,15 @@
  \see    RandomPickup.cpp
  */
 
-#ifndef __NOMAD_4_2_RANDOM_PICKUP__
-#define __NOMAD_4_2_RANDOM_PICKUP__
+#ifndef __NOMAD_4_4_RANDOM_PICKUP__
+#define __NOMAD_4_4_RANDOM_PICKUP__
 
 #include <cstdlib>
 #include "../Util/Uncopyable.hpp"
 
 using namespace std;
 
+#include "../nomad_platform.hpp"
 #include "../nomad_nsbegin.hpp"
 
 
@@ -75,7 +76,7 @@ using namespace std;
    }
    \endcode
 */
-class RandomPickup : private Uncopyable {
+class DLL_UTIL_API RandomPickup : private Uncopyable {
 
 private:
     size_t _n0;     ///< Initial value of \c n.
@@ -110,4 +111,4 @@ public:
 #include "../nomad_nsend.hpp"
 
 
-#endif // __NOMAD_4_2_RANDOM_PICKUP__
+#endif // __NOMAD_4_4_RANDOM_PICKUP__

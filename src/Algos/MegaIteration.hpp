@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -44,8 +44,8 @@
 /*                                                                                 */
 /*  You can find information on the NOMAD software at www.gerad.ca/nomad           */
 /*---------------------------------------------------------------------------------*/
-#ifndef __NOMAD_4_2_MEGAITERATION__
-#define __NOMAD_4_2_MEGAITERATION__
+#ifndef __NOMAD_4_4_MEGAITERATION__
+#define __NOMAD_4_4_MEGAITERATION__
 
 #include "../Algos/Iteration.hpp"
 #include "../Algos/Step.hpp"
@@ -79,10 +79,12 @@ protected:
     xFeas and xInf will be used as frame centers.
     \note This barrier is in subspace.
      */
-    std::shared_ptr<Barrier> _barrier;
+    std::shared_ptr<BarrierBase> _barrier;
 
     size_t _k;          ///< Main counter
 
+    
+    // check if _megaIterationSuccess is needed
     /**
      Success type of this step. Initialized with the run of the previous
      mega iteration, so that the update step knows what to do
@@ -103,7 +105,7 @@ public:
      */
     explicit MegaIteration(const Step* parentStep,
                               size_t k,
-                              std::shared_ptr<Barrier> barrier,
+                              std::shared_ptr<BarrierBase> barrier,
                               SuccessType success);
 
     virtual ~MegaIteration() {}
@@ -118,17 +120,23 @@ public:
 
 
     // Barrier
-    const std::shared_ptr<Barrier>& getBarrier() const          { return _barrier; }
-    void setBarrier(const std::shared_ptr<Barrier> &barrier)    { _barrier = barrier; }
-
-
+    const std::shared_ptr<BarrierBase>& getBarrier() const          { return _barrier; }
+    void setBarrier(const std::shared_ptr<BarrierBase> &barrier)    { _barrier = barrier; }
+    
     /**
-     Success is initialized with the success of the previous
-     MegaIteration. This is useful to know for the Update step, and some Search steps.
-     At the end of the MegaIteration, Success is updated with the latest SuccessType.
+     \return \c nullptr for algorithms that do not use a mesh. Otherwise, this function must be reimplemented in algorithm specific MegaIteration (for example, MadsMegaIteration).
      */
-    const SuccessType& getSuccessType() const       { return _megaIterationSuccess; }
-    void setSuccessType(const SuccessType& success) { _megaIterationSuccess = success; }
+    virtual const MeshBasePtr getMesh() const { return nullptr; }
+
+
+
+//    /**
+//     Success is initialized with the success of the previous
+//     MegaIteration. This is useful to know for the Update step, and some Search steps.
+//     At the end of the MegaIteration, Success is updated with the latest SuccessType.
+//     */
+//    const SuccessType& getSuccessType() const       { return _megaIterationSuccess; }
+//    void setSuccessType(const SuccessType& success) { _megaIterationSuccess = success; }
 
     /// Compute the number of xFeas and xInf points to use to create iterations
     void computeMaxXFeasXInf(size_t &maxXFeas, size_t &maxXInf);
@@ -144,7 +152,7 @@ protected:
     /// Helper for constructor
     void init();
 
-    virtual void startImp()    override = 0;
+    virtual void startImp()    override ;
     virtual bool runImp()      override = 0;
 
     /// Implementation of the end task.
@@ -172,4 +180,4 @@ std::istream& operator>>(std::istream& is, MegaIteration& megaIteration);
 
 #include "../nomad_nsend.hpp"
 
-#endif // __NOMAD_4_2_MEGAITERATION__
+#endif // __NOMAD_4_4_MEGAITERATION__

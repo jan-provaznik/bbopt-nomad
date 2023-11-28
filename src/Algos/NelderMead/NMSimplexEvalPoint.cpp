@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -58,7 +58,7 @@ bool NOMAD::NMSimplexEvalPointCompare::operator()(const NOMAD::EvalPoint& lhs,
     auto evc = NOMAD::EvcInterface::getEvaluatorControl();
     if (nullptr != evc)
     {
-        evalType = evc->getEvalType();
+        evalType = evc->getCurrentEvalType();
         computeType = evc->getComputeType();
     }
     NOMAD::ComputeSuccessType computeSuccess(evalType, computeType);

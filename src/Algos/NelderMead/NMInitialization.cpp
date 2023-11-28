@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -48,6 +48,7 @@
 #include "../../Algos/EvcInterface.hpp"
 #include "../../Algos/NelderMead/NMInitialization.hpp"
 #include "../../Algos/SubproblemManager.hpp"
+#include "../../Eval/ProgressiveBarrier.hpp"
 
 
 void NOMAD::NMInitialization::init()
@@ -60,7 +61,7 @@ bool NOMAD::NMInitialization::runImp()
 {
     bool doContinue = ! _stopReasons->checkTerminate();
 
-    if (doContinue)
+    if (doContinue && _trialPoints.size() > 0)
     {
         // For a standalone NM, evaluate the trial points generated during start (simplex is created later)
         // Otherwise, there are no trial points available
@@ -75,7 +76,6 @@ bool NOMAD::NMInitialization::runImp()
 
 void NOMAD::NMInitialization::startImp()
 {
-
     if ( ! _stopReasons->checkTerminate() )
     {
         // If needed, generate trial points and put them in cache to form simplex
@@ -100,9 +100,9 @@ void NOMAD::NMInitialization::endImp()
         std::copy(_trialPoints.begin(), _trialPoints.end(),
                           std::back_inserter(evalPointList));
         auto hMax = _runParams->getAttributeValue<NOMAD::Double>("H_MAX_0");
-        _barrier = std::make_shared<NOMAD::Barrier>(hMax,
+        _barrier = std::make_shared<NOMAD::ProgressiveBarrier>(hMax,
                                 NOMAD::SubproblemManager::getInstance()->getSubFixedVariable(this),
-                                NOMAD::EvcInterface::getEvaluatorControl()->getEvalType(),
+                                NOMAD::EvcInterface::getEvaluatorControl()->getCurrentEvalType(),
                                 NOMAD::EvcInterface::getEvaluatorControl()->getComputeType(),
                                 evalPointList);
     }

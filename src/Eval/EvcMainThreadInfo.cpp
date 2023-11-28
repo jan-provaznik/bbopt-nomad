@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -52,25 +52,78 @@
 /*-------------------------*/
 /* Class EvcMainThreadInfo */
 /*-------------------------*/
+
 void NOMAD::EvcMainThreadInfo::init()
 {
+
+    _evalSortType = _evalContParams->getAttributeValue<NOMAD::EvalSortType>("EVAL_QUEUE_SORT");
+    
+    _evalOpportunistic = _evalContParams->getAttributeValue<bool>("EVAL_OPPORTUNISTIC");
+    _useCache = _evalContParams->getAttributeValue<bool>("EVAL_USE_CACHE");
+    _subPbMaxBBEval = _evalContParams->getAttributeValue<size_t>("SUBPROBLEM_MAX_BB_EVAL");
+    _evalSurrogateOptimization = _evalContParams->getAttributeValue<bool>("EVAL_SURROGATE_OPTIMIZATION");
 }
 
 
-std::shared_ptr<NOMAD::Evaluator> NOMAD::EvcMainThreadInfo::setEvaluator(std::shared_ptr<NOMAD::Evaluator> evaluator)
+bool NOMAD::EvcMainThreadInfo::hasEvaluator(NOMAD::EvalType evalType) const
 {
-    auto previousEvaluator = _evaluator;
-    _evaluator = evaluator;
-
-    return previousEvaluator;
+    if (_evaluators.size() == 0)
+    {
+        return false;
+    }
+    
+    auto it = std::find_if(_evaluators.begin(),_evaluators.end(), [evalType](NOMAD::EvaluatorPtr e){ return e->getEvalType() == evalType; });
+    
+    if ( _evaluators.end() == it )
+    {
+        return false;
+    }
+    return true;
 }
 
-
-std::shared_ptr<NOMAD::EvalParameters> NOMAD::EvcMainThreadInfo::getEvalParams() const
+const NOMAD::Evaluator* NOMAD::EvcMainThreadInfo::getCurrentEvaluator() const
 {
-    return (nullptr == _evaluator) ? nullptr : _evaluator->getEvalParams();
+    if (_evaluators.size() == 0)
+    {
+        std::string s = "Error in EvaluatorControl main thread management: no evaluator is registered.";
+        throw NOMAD::Exception(__FILE__, __LINE__, s);
+    }
+    if (NOMAD::EvalType::UNDEFINED == _currentEvaluatorType)
+    {
+        std::string s = "Error in EvaluatorControl main thread management: current evaluator type is undefined.";
+        throw NOMAD::Exception(__FILE__, __LINE__, s);
+    }
+    
+    auto it = std::find_if(_evaluators.begin(),_evaluators.end(), [evalType=_currentEvaluatorType](NOMAD::EvaluatorPtr e){ return e->getEvalType() == evalType; });
+    
+    if ( _evaluators.end() == it )
+    {
+        std::string s = "Error in EvaluatorControl main thread management: evaluator with EvalType = " + NOMAD::evalTypeToString(_currentEvaluatorType);
+        s += " is not available";
+        throw NOMAD::Exception(__FILE__, __LINE__, s);
+    }
+    return (it->get());
 }
 
+void NOMAD::EvcMainThreadInfo::addEvaluator(NOMAD::EvaluatorPtr evaluator)
+{
+    if ( nullptr == evaluator )
+    {
+        std::string s = "Error in EvaluatorControl main thread management: cannot assign nullptr.";
+        throw NOMAD::Exception(__FILE__, __LINE__, s);
+    }
+    
+    auto evalType = evaluator->getEvalType();
+    
+    auto it = std::find_if(_evaluators.begin(),_evaluators.end(), [evalType](NOMAD::EvaluatorPtr e){ return e->getEvalType() == evalType; });
+    
+    if ( _evaluators.end() != it )
+    {
+        _evaluators.erase(it);
+    }
+    _evaluators.push_back(evaluator);
+    _currentEvaluatorType = evaluator->getEvalType(); // The last added evaluator becomes the current evaluator
+}
 
 void NOMAD::EvcMainThreadInfo::incNbPointsInQueue()
 {
@@ -88,104 +141,41 @@ void NOMAD::EvcMainThreadInfo::decNbPointsInQueue()
     _nbPointsInQueue--;
 }
 
-
-NOMAD::EvalType NOMAD::EvcMainThreadInfo::getEvalType() const
+void NOMAD::EvcMainThreadInfo::setEvalSortType(EvalSortType evalSortType)
 {
-    return (nullptr == _evaluator) ? NOMAD::EvalType::UNDEFINED : _evaluator->getEvalType();
-}
-
-
-bool NOMAD::EvcMainThreadInfo::getOpportunisticEval() const
-{
-    while (true)
-    {
-        try
-        {
-            return _evalContParams->getAttributeValue<bool>("EVAL_OPPORTUNISTIC");
-        }
-        catch (NOMAD::ParameterToBeChecked&)
-        {
-            // Exception due to parameters being in process of checkAndComply().
-            // While will loop - Retry
-        }
-    }
+    _evalSortType = evalSortType;
+    _evalContParams->setAttributeValue("EVAL_QUEUE_SORT", evalSortType);
+    _evalContParams->checkAndComply();
 }
 
 
 void NOMAD::EvcMainThreadInfo::setOpportunisticEval(const bool opportunisticEval)
 {
+    _evalOpportunistic = opportunisticEval;
     _evalContParams->setAttributeValue("EVAL_OPPORTUNISTIC", opportunisticEval);
     _evalContParams->checkAndComply();
 }
 
 
-bool NOMAD::EvcMainThreadInfo::getUseCache() const
-{
-    while (true)
-    {
-        try
-        {
-            return _evalContParams->getAttributeValue<bool>("EVAL_USE_CACHE");
-        }
-        catch (NOMAD::ParameterToBeChecked&)
-        {
-            // Exception due to parameters being in process of checkAndComply().
-            // While will loop - Retry
-        }
-    }
-}
-
-
 void NOMAD::EvcMainThreadInfo::setUseCache(const bool useCache)
 {
+    _useCache = useCache;
     _evalContParams->setAttributeValue("EVAL_USE_CACHE", useCache);
     _evalContParams->checkAndComply();
 }
 
-
-size_t NOMAD::EvcMainThreadInfo::getMaxBbEvalInSubproblem() const
-{
-    while (true)
-    {
-        try
-        {
-            return _evalContParams->getAttributeValue<size_t>("SUBPROBLEM_MAX_BB_EVAL");
-        }
-        catch (NOMAD::ParameterToBeChecked&)
-        {
-            // Exception due to parameters being in process of checkAndComply().
-            // While will loop - Retry
-        }
-    }
-}
-
-
 void NOMAD::EvcMainThreadInfo::setMaxBbEvalInSubproblem(const size_t maxBbEval)
 {
+    _subPbMaxBBEval = maxBbEval;
     _evalContParams->setAttributeValue("SUBPROBLEM_MAX_BB_EVAL", maxBbEval);
     _evalContParams->checkAndComply();
 }
 
 
-bool NOMAD::EvcMainThreadInfo::getSurrogateOptimization() const
-{
-    while (true)
-    {
-        try
-        {
-            return _evalContParams->getAttributeValue<bool>("EVAL_SURROGATE_OPTIMIZATION");
-        }
-        catch (NOMAD::ParameterToBeChecked&)
-        {
-            // Exception due to parameters being in process of checkAndComply().
-            // While will loop - Retry
-        }
-    }
-}
-
 
 void NOMAD::EvcMainThreadInfo::setSurrogateOptimization(const bool surrogateOptimization)
 {
+    _evalSurrogateOptimization = surrogateOptimization;
     _evalContParams->setAttributeValue("EVAL_SURROGATE_OPTIMIZATION", surrogateOptimization);
     _evalContParams->checkAndComply();
 }
@@ -229,13 +219,8 @@ const NOMAD::EvalPointPtr NOMAD::EvcMainThreadInfo::getBestIncumbent() const
 
 void NOMAD::EvcMainThreadInfo::setBestIncumbent(const NOMAD::EvalPointPtr bestIncumbent)
 {
-    NOMAD::ComputeSuccessType computeSuccess(_evaluator->getEvalType(), _computeType);
-    if (computeSuccess(bestIncumbent, _bestIncumbent) >= NOMAD::SuccessType::PARTIAL_SUCCESS)
-    {
         _bestIncumbent = bestIncumbent;
-    }
 }
-
 
 std::vector<NOMAD::EvalPoint> NOMAD::EvcMainThreadInfo::retrieveAllEvaluatedPoints()
 {

@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -44,15 +44,15 @@
 /*                                                                                 */
 /*  You can find information on the NOMAD software at www.gerad.ca/nomad           */
 /*---------------------------------------------------------------------------------*/
-#ifndef __NOMAD_4_2_MADSITERATION__
-#define __NOMAD_4_2_MADSITERATION__
+#ifndef __NOMAD_4_4_MADSITERATION__
+#define __NOMAD_4_4_MADSITERATION__
 
 #include "../../Algos/Iteration.hpp"
 #include "../../Algos/Mads/MegaSearchPoll.hpp"
 #include "../../Algos/Mads/Poll.hpp"
 #include "../../Algos/Mads/Search.hpp"
-#include "../../Algos/MeshBase.hpp"
 #include "../../Eval/EvalPoint.hpp"
+#include "../../Eval/MeshBase.hpp"
 
 #include "../../nomad_nsbegin.hpp"
 
@@ -62,9 +62,8 @@
  */
 class MadsIteration: public Iteration
 {
-private:
+protected:
     const MeshBasePtr  _mesh;        ///< Mesh on which the points are
-    SuccessType                      _success;     ///< Success type of this iteration
 
     std::unique_ptr<Poll> _poll;
     std::unique_ptr<Search> _search;
@@ -92,7 +91,6 @@ public:
                            const MeshBasePtr mesh)
       : Iteration(parentStep, k),
         _mesh(mesh),
-        _success(SuccessType::NOT_EVALUATED),
         _poll(nullptr),
         _search(nullptr),
         _megasearchpoll(nullptr)
@@ -113,11 +111,6 @@ public:
      */
     const MeshBasePtr getMesh() const override { return _mesh; }
 
-    /// Return current SuccessType
-    const SuccessType& getSuccessType() const { return _success; }
-
-    /// Set SuccessType member
-    void setSuccessType(const SuccessType& success) { _success = success; }
 
 #ifdef TIME_STATS
     /// Time stats
@@ -152,4 +145,4 @@ private:
 
 #include "../../nomad_nsend.hpp"
 
-#endif // __NOMAD_4_2_MADSITERATION__
+#endif // __NOMAD_4_4_MADSITERATION__

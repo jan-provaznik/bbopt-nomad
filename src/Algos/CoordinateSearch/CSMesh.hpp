@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -46,10 +46,10 @@
 /*---------------------------------------------------------------------------------*/
 
 
-#ifndef __NOMAD_4_2_CSMESH__
-#define __NOMAD_4_2_CSMESH__
+#ifndef __NOMAD_4_4_CSMESH__
+#define __NOMAD_4_4_CSMESH__
 
-#include "../../Algos/MeshBase.hpp"
+#include "../../Eval/MeshBase.hpp"
 
 #include "../../nomad_nsbegin.hpp"
 
@@ -59,6 +59,7 @@
  The class manages the mesh size (delta) and the frame size (Delta) for the discretization of the variable space used by CS. Each variable has its own mesh and frame sizes which but the "cell" aspect ratios is not changed in CS (unlike in Mads) as the mesh is not anisotropic. The frame size (and mesh size) for all variables can be enlarged or decreased (see GMesh::refineDeltaFrameSize and GMesh::enlargeDeltaFrameSize). A given point can be projected on the the mesh using GMesh::scaleAndProjectOnMesh. \n
 
  The frame size for each variable is parameterized with one or two attributes: CSMesh::_frameSize, and CSMesh::_granularity (Delta = gran * frameSize). The first attribute is for variable having a specified minimal granularity (for example, integers have a minimal granularity of 1). This ensures that variables are always a multiple of the granularity if it is defined. The mesh size is delta = Delta/2.
+
  
  */
 class CSMesh: public MeshBase
@@ -83,7 +84,11 @@ public:
         init();
     }
 
-
+    // Clone a CSMesh and return a pointer to MeshBase
+    std::unique_ptr<MeshBase> clone() const override {
+      return std::make_unique<CSMesh>(*this);
+    }
+    
     /*-----------*/
     /* Get / Set */
     /*-----------*/
@@ -106,9 +111,7 @@ public:
      \copydoc MeshBase::enlargeDeltaFrameSize
      \note This implementation relies on CSMesh::_frameSize,  and CSMesh::_granularity.
      */
-    bool enlargeDeltaFrameSize(const Direction& direction,
-                               const Double& anisotropyFactor = 0,
-                               bool anisotropicMesh = false) override;
+    bool enlargeDeltaFrameSize(const Direction& direction) override;
 
     /**
      \copydoc MeshBase::refineDeltaFrameSize
@@ -192,5 +195,5 @@ private:
 
 #include "../../nomad_nsend.hpp"
 
-#endif // __NOMAD_4_2_GMESH__
+#endif // __NOMAD_4_4_GMESH__
 

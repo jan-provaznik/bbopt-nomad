@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -50,13 +50,19 @@
   \author Viviane Rochon Montplaisir
   \date   June 2018
 */
-#ifndef __NOMAD_4_2_MAINSTEP__
-#define __NOMAD_4_2_MAINSTEP__
+#ifndef __NOMAD_4_4_MAINSTEP__
+#define __NOMAD_4_4_MAINSTEP__
 
 #include "../Algos/Algorithm.hpp"
 #include "../Eval/Evaluator.hpp"
 #include "../Param/AllParameters.hpp"
 #include "../Type/LHSearchType.hpp"
+
+#ifdef USE_IBEX
+#include "ibex.h"
+#endif
+
+
 
 #include "../nomad_nsbegin.hpp"
 
@@ -69,12 +75,17 @@
 * MainStep takes care of the OpenMP parallelism.
 * An algorithm can call other algorithms during its execution.
 */
-class MainStep: public Step
+class DLL_ALGO_API MainStep: public Step
 {
 protected:
     std::string                         _paramFileName;  ///< Name of the file containing the parameters.
+    
+#ifdef USE_IBEX
+    std::shared_ptr<ibex::Set> _set;
+#endif
+  
     std::shared_ptr<AllParameters>      _allParams;
-    EvaluatorPtr          _evaluator; ///< Used in library running mode (not batch mode)
+    std::vector<EvaluatorPtr>           _evaluators; ///<  Can be used in library running mode (not batch mode). Keep evaluators for convenience when constructing evaluator control. See addEvaluator function.
     std::vector<std::shared_ptr<Algorithm>>  _algos;
 
 #ifdef TIME_STATS
@@ -88,8 +99,10 @@ public:
     explicit MainStep()
     : Step(),
         _paramFileName(""),
-        _evaluator(nullptr),
         _algos()
+#ifdef USE_IBEX
+        ,_set(nullptr)
+#endif
 #ifdef TIME_STATS
         ,_totalRealTime(0),
         _startTime(0.0),
@@ -115,10 +128,31 @@ public:
     void setAllParameters(const std::shared_ptr<AllParameters> &allParams);
 
     /**
-     The evaluator may be shared between main threads.
+     The evaluators are shared between main threads. Add one evaluator. Can be more than one.
      */
-    void setEvaluator(EvaluatorPtr ev) { _evaluator = ev;}
-
+    void addEvaluator(const EvaluatorPtr ev);
+    
+    
+    /**
+     The evaluators are shared between main threads. Set a single evaluator. To add more, use addEvaluator (see above).
+     */
+    void setEvaluator(const EvaluatorPtr ev);
+    
+    
+    /// Get the run flag of the execution (success or type of fail)
+    /**
+     Must be called after run()
+     Run flags:
+     %       1 - Objective target reached OR Mads converged (mesh criterion) to a feasible point (true problem).
+     %       0 - At least one feasible point obtained and evaluation budget (single bb or block of bb) spent or max iteration (user option) reached.
+     %      -1 - Mads mesh converged but no feasible point obtained (only infeasible) for the true problem.
+     %      -2 - No feasible point obtained (only infeasible) and evaluation budget (single bb or block of bb) spent or max iteration (user option) reached
+     %      -3 - Initial point failed to evaluate
+     %      -4 - Time limit reached (user option)
+     %      -5 - CTRL-C or user stopped (callback function)
+     %      -6 - Stop on feasible point (user option)
+     */
+    int getRunFlag() const;
 
     /*---------*/
     /* Others  */
@@ -142,6 +176,9 @@ public:
 
     /// Helper function called by the code main function if necessary.
     void displayHelp(const std::string& helpSubject = "all", bool devHelp = false);
+    
+    /// Helper to display all parameters in a CSV format to be included in doc.
+    void displayCSVDoc();
 
     /**
      The user has requested a hot restart. Update the parameters with the changes requested by the user (read file or set inline).
@@ -169,7 +206,11 @@ public:
       \return new values of key parameters.
       */
     std::vector<std::string> observe(const NOMAD::ArrayOfPoint & xs, const std::vector<NOMAD::ArrayOfDouble> & fxs, const std::string & destinationCacheFileName="");
-
+    
+    #ifdef USE_IBEX
+    const std::shared_ptr<ibex::Set> getIbexSet(){return _set;}
+    #endif
+    
 protected:
     /// Specific implementation to start NOMAD
     /**
@@ -207,13 +248,15 @@ protected:
     bool detectPhaseOne();
 
     /// Helper for start
-    void createCache() const;
+    void createCache(bool useCacheForRerun) const;
 
     /// Helper for start
-    void updateX0sFromCache() const;
+    void updateX0sFromCacheAndFromLHSInit() const;
 
     /// Helper for start
     ArrayOfPoint suggestFromLH(const size_t nbPoints) const;
+    
+ 
 
 private:
     /// Helper for constructor
@@ -221,6 +264,9 @@ private:
 
     ///  Detailed stats
     void displayDetailedStats() const;
+    
+    /// Final solution file
+    void writeFinalSolutionFile() const;
 
 };
 
@@ -228,4 +274,4 @@ private:
 #include "../nomad_nsend.hpp"
 
 
-#endif // __NOMAD_4_2_MAINSTEP__
+#endif // __NOMAD_4_4_MAINSTEP__

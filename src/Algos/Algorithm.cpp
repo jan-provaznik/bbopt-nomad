@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -52,6 +52,7 @@
 #include "../Algos/Mads/SearchMethodBase.hpp"
 #include "../Algos/SubproblemManager.hpp"
 #include "../Cache/CacheBase.hpp"
+#include "../Eval/ProgressiveBarrier.hpp"
 #include "../Output/OutputQueue.hpp"
 #include "../Math/RNG.hpp"
 #include "../Util/fileutils.hpp"
@@ -82,14 +83,22 @@ void NOMAD::Algorithm::init()
         throw NOMAD::StepException(__FILE__, __LINE__,
                                "Valid stop reasons must be provided to the Algorithm constructor.", this);
 
+    // Is sub algo ?
+    auto parentAlgo = getParentOfType<NOMAD::Algorithm*>();
+    if (nullptr != parentAlgo)
+    {
+        _isSubAlgo = true;
+    }
+    
     // Check pbParams if needed, ex. if a copy of PbParameters was given to the Algorithm constructor.
     _pbParams->checkAndComply();
 
     // Instantiate generic algorithm termination
-    _termination    = std::make_unique<NOMAD::Termination>( this );
+    _termination    = std::make_unique<NOMAD::Termination>( this, _runParams, _pbParams);
 
     // Update SubproblemManager
-    NOMAD::Point fullFixedVariable = (isRootAlgo()||_useLocalFixedVariables) ? _pbParams->getAttributeValue<NOMAD::Point>("FIXED_VARIABLE")
+    // When the flag use only local variables is true, only the fixed variables given in _pbParams are considered. Otherwise, we use the subproblem manager to fetch the fixed variables from the parent pb.
+    NOMAD::Point fullFixedVariable = (isRootAlgo()||_useOnlyLocalFixedVariables) ? _pbParams->getAttributeValue<NOMAD::Point>("FIXED_VARIABLE")
                                    : NOMAD::SubproblemManager::getInstance()->getSubFixedVariable(_parentStep);
 
     NOMAD::Subproblem subproblem(_pbParams, fullFixedVariable);
@@ -102,7 +111,10 @@ void NOMAD::Algorithm::init()
      * \todo Propage interruption to all threads, for all parallel evaluations of blackbox.
      */
     signal(SIGINT, userInterrupt);
-    signal(SIGSEGV, debugSegFault);
+    
+    // This signal handling is problematic with Matlab.
+    // Let's test without it.
+    // signal(SIGSEGV, debugSegFault);
 
 }
 
@@ -130,9 +142,9 @@ void NOMAD::Algorithm::startImp()
     // All stop reasons are reset.
     _stopReasons->setStarted();
 
-    // SuccessType is reset
+    // Default success is reset
+    // Success type is initialized in Step::defautStart()
     _algoSuccessful = false;
-    _algoBestSuccess = NOMAD::SuccessType::NOT_EVALUATED;
 
     if (isRootAlgo())
     {
@@ -210,28 +222,19 @@ void NOMAD::Algorithm::endImp()
     
     // Update parent if it exists (can be Algo or IterationUtils)  with this stats
     _trialPointStats.updateParentStats();
-    
-    OUTPUT_DEBUG_START
-    std::string s = "Total number of evals: " + std::to_string(_trialPointStats.getNbEvalsDone(NOMAD::EvalType::BB,true)) + "\n";
-    AddOutputDebug(s);
-    s = "Current number of evals: " + std::to_string(_trialPointStats.getNbEvalsDone(NOMAD::EvalType::BB,false)) + "\n";
-    AddOutputDebug(s);
-    OUTPUT_DEBUG_END
-    
-    // Update the SearchMethod success type with best success found.
-    if ( _algoSuccessful )
+
+
+    // Reset user algo stop reason
+    if (_stopReasons->testIf(NOMAD::IterStopType::USER_ALGO_STOP))
     {
-        // The parent can be a SearchMethod (NM-Mads Search) or not (that is NM is a standalone optimization)
-        auto searchMethodConst = dynamic_cast<const NOMAD::SearchMethodBase*>(_parentStep);
-
-        if (searchMethodConst != nullptr)
-        {
-            auto searchMethod = const_cast<NOMAD::SearchMethodBase*>(searchMethodConst);
-            searchMethod->setSuccessType(_algoBestSuccess);
-        }
-
+        _stopReasons->set(NOMAD::IterStopType::STARTED);
     }
-
+    
+    
+    // Update the parent success
+    Step * parentStep = const_cast<Step*>(_parentStep);
+    parentStep->setSuccessType(_success);
+    
     // By default reset the lap counter for BbEval and set the lap maxBbEval to INF
     NOMAD::EvcInterface::getEvaluatorControl()->resetLapBbEval();
     NOMAD::EvcInterface::getEvaluatorControl()->setLapMaxBbEval( NOMAD::INF_SIZE_T );
@@ -243,27 +246,6 @@ void NOMAD::Algorithm::endImp()
     }
 }
 
-//void NOMAD::Algorithm::updateParentStats(TrialPointStats &trialPointStats)
-//{
-//    // First try to update iteration utils parent
-//    // The parent can be an IterationUtils using an Algorithm to generate and evaluate trial point.
-//    // For example, VNS Search Method (IU) runs a VNS (Algo) which runs a Mads (Algo), etc. We need to pass the stats from Mads to VNS and from VNS to VNS Search Method.
-//    auto step = const_cast<Step*>(_parentStep);
-//    auto iu = dynamic_cast<NOMAD::IterationUtils*>(step);
-//    if (nullptr != iu)
-//    {
-//        iu->updateStats(trialPointStats);
-//    }
-//    else
-//    {
-//        // Update parent algorithm (if available) with trial point stats.
-//        auto algo = this->getParentOfType<NOMAD::Algorithm*>();
-//        if (nullptr != algo)
-//        {
-//            algo->updateStats(trialPointStats);
-//        }
-//    }
-//}
 
 void NOMAD::Algorithm::updateStats(TrialPointStats &trialPointStats)
 {
@@ -323,10 +305,11 @@ void NOMAD::Algorithm::displayBestSolutions() const
     std::string sFeas;
     // Output level is very high if there are no parent algorithm
     // Output level is info if this algorithm is a sub part of another algorithm.
-    NOMAD::OutputLevel outputLevel = isSubAlgo() ? NOMAD::OutputLevel::LEVEL_INFO
+    NOMAD::OutputLevel outputLevel = _isSubAlgo ? NOMAD::OutputLevel::LEVEL_INFO
                                                  : NOMAD::OutputLevel::LEVEL_VERY_HIGH;
     auto solFormat = NOMAD::OutputQueue::getInstance()->getSolFormat();
     auto computeType = NOMAD::EvcInterface::getEvaluatorControl()->getComputeType();
+    auto evalType = NOMAD::EvcInterface::getEvaluatorControl()->getCurrentEvalType();
     auto surrogateAsBB = NOMAD::EvcInterface::getEvaluatorControl()->getSurrogateOptimization();
     if (isRootAlgo())
     {
@@ -337,9 +320,21 @@ void NOMAD::Algorithm::displayBestSolutions() const
 
     sFeas = "Best feasible solution";
     auto barrier = getMegaIterationBarrier();
+    
+    // Let try to build a progressive barrier from the cache
+    if (nullptr == barrier)
+    {
+        barrier = std::make_shared<NOMAD::ProgressiveBarrier>(NOMAD::INF,
+                                                              fixedVariable,
+                                                              evalType,
+                                                              computeType);
+    }
     if (nullptr != barrier)
     {
-        evalPointList = barrier->getAllXFeas();
+        for (auto const & p : barrier->getAllXFeas())
+        {
+            evalPointList.push_back(*p);
+        }
         NOMAD::convertPointListToFull(evalPointList, fixedVariable);
     }
     size_t nbBestFeas = evalPointList.size();
@@ -403,7 +398,10 @@ void NOMAD::Algorithm::displayBestSolutions() const
     sInf = "Best infeasible solution";
     if (nullptr != barrier)
     {
-        evalPointList = barrier->getAllXInf();
+        for (auto const & p : barrier->getAllXInf())
+        {
+            evalPointList.push_back(*p);
+        }
         NOMAD::convertPointListToFull(evalPointList, fixedVariable);
     }
     size_t nbBestInf = evalPointList.size();
@@ -462,37 +460,79 @@ void NOMAD::Algorithm::displayEvalCounts() const
 {
     // Display evaluation information
 
-    // Used to display or not certain values
-    bool isSub = isSubAlgo();
+    // _isSubAlgo is used to display or not certain values
+    
+    // Output levels will be modulated depending on the counts and on the Algorithm level.
+    NOMAD::OutputLevel outputLevelHigh = _isSubAlgo ? NOMAD::OutputLevel::LEVEL_INFO
+                                               : NOMAD::OutputLevel::LEVEL_HIGH;
+    NOMAD::OutputLevel outputLevelNormal = _isSubAlgo ? NOMAD::OutputLevel::LEVEL_INFO
+                                                 : NOMAD::OutputLevel::LEVEL_NORMAL;
+    // Early out
+    if ( ! NOMAD::OutputQueue::GoodLevel(outputLevelHigh) && ! NOMAD::OutputQueue::GoodLevel(outputLevelNormal) )
+    {
+        return;
+    }
 
     // Actual numbers
     size_t bbEval       = NOMAD::EvcInterface::getEvaluatorControl()->getBbEval();
+    size_t bbEvalFromCacheForRerun = NOMAD::EvcInterface::getEvaluatorControl()->getBbEvalFromCacheForRerun();
     size_t lapBbEval    = NOMAD::EvcInterface::getEvaluatorControl()->getLapBbEval();
     size_t nbEval       = NOMAD::EvcInterface::getEvaluatorControl()->getNbEval();
+    size_t surrogateEval = NOMAD::EvcInterface::getEvaluatorControl()->getSurrogateEval();
+    size_t surrogateEvalFromCacheForRerun = NOMAD::EvcInterface::getEvaluatorControl()->getSurrogateEvalFromCacheForRerun();
+    size_t lapSurrogateEval= NOMAD::EvcInterface::getEvaluatorControl()->getLapSurrogateEval();
     size_t modelEval    = NOMAD::EvcInterface::getEvaluatorControl()->getModelEval();
     size_t totalModelEval = NOMAD::EvcInterface::getEvaluatorControl()->getTotalModelEval();
     size_t nbCacheHits  = NOMAD::CacheBase::getNbCacheHits();
+    size_t nbRevealingIter = NOMAD::EvcInterface::getEvaluatorControl()-> getNbRevealingIter();
     int nbEvalNoCount   = static_cast<int>(nbEval - bbEval - nbCacheHits);
 
     // What needs to be shown, according to the counts and to the value of isSub
-    bool showNbEvalNoCount  = (nbEvalNoCount > 0);
-    bool showModelEval      = isSub && (modelEval > 0);
-    bool showTotalModelEval = (totalModelEval > 0);
-    bool showNbCacheHits    = (nbCacheHits > 0);
-    bool showNbEval         = (nbEval > bbEval);
-    bool showLapBbEval      = isSub && (bbEval > lapBbEval && lapBbEval > 0);
+    bool showbbEvalFromCacheForRerun   = (bbEvalFromCacheForRerun > 0 );
+    bool showNbEvalNoCount   = (nbEvalNoCount > 0);
+    bool showModelEval       = _isSubAlgo && (modelEval > 0);
+    bool showTotalModelEval  = (totalModelEval > 0);
+    bool showNbCacheHits     = (nbCacheHits > 0);
+    bool showNbEval          = (nbEval > bbEval);
+    bool showLapBbEval       = _isSubAlgo && (bbEval > lapBbEval && lapBbEval > 0);
+    bool showSurrogateEval   = (surrogateEval > 0);
+    bool showSurrogateEvalFromCacheForRerun   = (surrogateEvalFromCacheForRerun > 0);
+    bool showNbRevealingIter = nbRevealingIter>0;
+    // bool showLapSurrogateEval= _isSubAlgo && (surrogateEval > lapSurrogateEval && lapSurrogateEval > 0);
 
-    // Output levels will be modulated depending on the counts and on the Algorithm level.
-    NOMAD::OutputLevel outputLevelHigh = isSub ? NOMAD::OutputLevel::LEVEL_INFO
-                                               : NOMAD::OutputLevel::LEVEL_HIGH;
-    NOMAD::OutputLevel outputLevelNormal = isSub ? NOMAD::OutputLevel::LEVEL_INFO
-                                                 : NOMAD::OutputLevel::LEVEL_NORMAL;
+
 
     // Padding for nice presentation
-    std::string sFeedBbEval, sFeedLapBbEval, sFeedNbEvalNoCount, sFeedModelEval,
-                sFeedTotalModelEval, sFeedCacheHits, sFeedNbEval;
+    std::string sFeedBbEval, sFeedBbEvalFromCacheForRerun, sFeedLapBbEval, sFeedSurrogateEval, sFeedSurrogateEvalFromCacheForRerun, sFeedLapSurrogateEval, sFeedNbEvalNoCount, sFeedModelEval, sFeedTotalModelEval, sFeedCacheHits, sFeedNbEval, sFeedNbRevealingIter;
 
     // Conditional values: showNbEval, showNbEvalNoCount, showLapBbEval
+    if (showbbEvalFromCacheForRerun)  // Longest title
+    {
+        sFeedBbEval += "      ";
+        sFeedBbEvalFromCacheForRerun += "";
+        //sFeedLapBbEval += "";
+        sFeedNbEvalNoCount += "      ";
+        sFeedModelEval += "     ";
+        sFeedTotalModelEval += "                 ";
+        sFeedCacheHits += "      ";
+        sFeedNbEval += "      ";
+        sFeedSurrogateEval += "     ";
+        sFeedNbRevealingIter += "      ";   // TODO: check indentation for release
+    }
+    if (showSurrogateEvalFromCacheForRerun)  // Longest title
+    {
+        sFeedBbEval += "                         ";
+        sFeedBbEvalFromCacheForRerun += "";
+        //sFeedLapBbEval += "";
+        sFeedNbEvalNoCount += "      ";
+        sFeedModelEval += "                       ";
+        sFeedTotalModelEval += "                 ";
+        sFeedCacheHits += "                              ";
+        sFeedNbEval += "             ";
+        sFeedSurrogateEval += "            ";
+        sFeedSurrogateEvalFromCacheForRerun += "            ";
+        sFeedNbRevealingIter += "                         ";
+    }
     if (showLapBbEval)  // Longest title
     {
         sFeedBbEval += "                 ";
@@ -502,6 +542,8 @@ void NOMAD::Algorithm::displayEvalCounts() const
         sFeedTotalModelEval += "              ";
         sFeedCacheHits += "                           ";
         sFeedNbEval += "          ";
+        sFeedSurrogateEval += "         ";
+        sFeedNbRevealingIter += "                 ";
     }
     else if (showNbEvalNoCount) // Second longest
     {
@@ -512,35 +554,59 @@ void NOMAD::Algorithm::displayEvalCounts() const
         sFeedTotalModelEval += "           ";
         sFeedCacheHits += "                        ";
         sFeedNbEval += "       ";
+        sFeedSurrogateEval += "         ";
+        sFeedSurrogateEvalFromCacheForRerun += "         ";
+        sFeedNbRevealingIter += "              ";
     }
     else if (showNbEval)    // 3rd longest title
     {
-        sFeedBbEval += "       ";
+        sFeedBbEval += "        ";
         //sFeedLapBbEval += "";
         //sFeedNbEvalNoCount += "";
-        sFeedModelEval += "          ";
-        sFeedTotalModelEval += "    ";
-        sFeedCacheHits += "                 ";
-        //sFeedNbEval += "";
+        sFeedModelEval += "   ";
+        sFeedTotalModelEval += " ";
+        sFeedCacheHits += "                  ";
+        sFeedNbEval += " ";
+        sFeedSurrogateEval += "";
+        sFeedNbRevealingIter  += "        ";
     }
     else if (showTotalModelEval)
     {
         sFeedBbEval += "   ";
         //sFeedLapBbEval += "";
         //sFeedNbEvalNoCount += "";
-        //sFeedModelEval += "          ";
+        sFeedModelEval += " ";
         //sFeedTotalModelEval += "    ";
         //sFeedCacheHits += "                 ";
         //sFeedNbEval += "";
+        sFeedSurrogateEval += "         ";
+        sFeedSurrogateEvalFromCacheForRerun += "         ";
     }
 
-    std::string sBbEval         = "Blackbox evaluations: " + sFeedBbEval + NOMAD::itos(bbEval);
-    std::string sLapBbEval      = "Sub-optimization blackbox evaluations: " + sFeedLapBbEval + NOMAD::itos(lapBbEval);
-    std::string sNbEvalNoCount  = "Blackbox evaluation (not counting): " + sFeedNbEvalNoCount + NOMAD::itos(nbEvalNoCount);
-    std::string sModelEval      = "Model evaluations: " + sFeedModelEval + NOMAD::itos(modelEval);
-    std::string sTotalModelEval = "Total model evaluations: " + sFeedTotalModelEval + NOMAD::itos(totalModelEval);
-    std::string sCacheHits      = "Cache hits: " + sFeedCacheHits + NOMAD::itos(nbCacheHits);
-    std::string sNbEval         = "Total number of evaluations: " + sFeedNbEval + NOMAD::itos(nbEval);
+
+    size_t surrogateCost = 0;
+    auto evc = NOMAD::EvcInterface::getEvaluatorControl();
+    if (nullptr != evc)
+    {
+        surrogateCost = evc->getEvaluatorControlGlobalParams()->getAttributeValue<size_t>("EVAL_SURROGATE_COST");
+    }
+    
+    std::string sBbEval           = "Blackbox evaluations: " + sFeedBbEval + NOMAD::itos(bbEval);
+    std::string sBbEvalFromCacheForRerun = "Blackbox evaluations from cache (rerun): " + sFeedBbEvalFromCacheForRerun + NOMAD::itos(bbEvalFromCacheForRerun);
+    std::string sLapBbEval        = "Sub-optimization blackbox evaluations: " + sFeedLapBbEval + NOMAD::itos(lapBbEval);
+    std::string sNbEvalNoCount    = "Blackbox evaluation (not counting): " + sFeedNbEvalNoCount + NOMAD::itos(nbEvalNoCount);
+    std::string sModelEval        = "Model evaluations: " + sFeedModelEval + NOMAD::itos(modelEval);
+    std::string sTotalModelEval   = "Total model evaluations: " + sFeedTotalModelEval + NOMAD::itos(totalModelEval);
+    std::string sCacheHits        = "Cache hits: " + sFeedCacheHits + NOMAD::itos(nbCacheHits);
+    std::string sNbEval           = "Total number of evaluations: " + sFeedNbEval + NOMAD::itos(nbEval);
+    std::string sSurrogateEval    = "Static surrogate evaluations: " + sFeedSurrogateEval + NOMAD::itos(surrogateEval) ;
+    std::string sNbRevealingIter    = "Revealing iterations: " + sFeedNbRevealingIter + NOMAD::itos(nbRevealingIter) ;
+    if (surrogateCost > 0)
+    {
+        sSurrogateEval    += " -> Counts for " + NOMAD::itos(size_t(surrogateEval/surrogateCost)) + " blackbox evals.";
+    }
+    std::string sSurrogateEvalFromCacheForRerun    = "Static surrogate evaluations (cache rerun): " + sFeedSurrogateEvalFromCacheForRerun + NOMAD::itos(surrogateEvalFromCacheForRerun);
+    std::string sLapSurrogateEval = "Sub-optimization static surrogate evaluations: " + sFeedLapSurrogateEval + NOMAD::itos(lapSurrogateEval);
 
 #ifdef TIME_STATS
     std::string sTotalRealTime  = "Total real time (round s):    " + std::to_string(_totalRealAlgoTime);
@@ -551,6 +617,10 @@ void NOMAD::Algorithm::displayEvalCounts() const
     // Always show number of blackbox evaluations
     AddOutputInfo(sBbEval, outputLevelHigh);
     // The other values are conditional to the show* booleans
+    if (showbbEvalFromCacheForRerun)
+    {
+        AddOutputInfo(sBbEvalFromCacheForRerun, outputLevelNormal);
+    }
     if (showLapBbEval)
     {
         AddOutputInfo(sLapBbEval, outputLevelNormal);
@@ -558,6 +628,14 @@ void NOMAD::Algorithm::displayEvalCounts() const
     if (showNbEvalNoCount)
     {
         AddOutputInfo(sNbEvalNoCount, outputLevelNormal);
+    }
+    if (showSurrogateEval)
+    {
+        AddOutputInfo(sSurrogateEval, outputLevelNormal);
+    }
+    if (showSurrogateEvalFromCacheForRerun)
+    {
+        AddOutputInfo(sSurrogateEvalFromCacheForRerun, outputLevelNormal);
     }
     if (showModelEval)
     {
@@ -574,6 +652,10 @@ void NOMAD::Algorithm::displayEvalCounts() const
     if (showNbEval)
     {
         AddOutputInfo(sNbEval, outputLevelNormal);
+    }
+    if (showNbRevealingIter)
+    {
+        AddOutputInfo(sNbRevealingIter, outputLevelNormal);
     }
 
 #ifdef TIME_STATS
@@ -596,11 +678,11 @@ NOMAD::EvalPoint NOMAD::Algorithm::getBestSolution(bool bestFeas) const
         NOMAD::EvalPointPtr bestSolPtr = nullptr;
         if (bestFeas)
         {
-            bestSolPtr = barrier->getFirstXFeas();
+            bestSolPtr = barrier->getCurrentIncumbentFeas();
         }
         else
         {
-            bestSolPtr = barrier->getFirstXInf();
+            bestSolPtr = barrier->getCurrentIncumbentInf();
         }
         if (nullptr != bestSolPtr)
         {
@@ -610,21 +692,6 @@ NOMAD::EvalPoint NOMAD::Algorithm::getBestSolution(bool bestFeas) const
     
     return bestSol;
 }
-
-bool NOMAD::Algorithm::isSubAlgo() const
-{
-    
-    bool isSub = false;
-
-    auto parentAlgo = getParentOfType<NOMAD::Algorithm*>();
-    if (nullptr != parentAlgo)
-    {
-        isSub = true;
-    }
-
-    return isSub;
-}
-
 
 bool NOMAD::Algorithm::terminate(const size_t iteration)
 {
@@ -694,6 +761,11 @@ void NOMAD::Algorithm::read(std::istream& is)
     NOMAD::EvcInterface::getEvaluatorControl()->setBbEval(nbBbEval);
     NOMAD::EvcInterface::getEvaluatorControl()->setNbEval(nbEval);
 
+}
+
+size_t NOMAD::Algorithm::getNbObj()
+{
+    return NOMAD::getNbObj(getBbOutputType());
 }
 
 

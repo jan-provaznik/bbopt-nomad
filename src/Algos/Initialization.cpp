@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -45,6 +45,7 @@
 /*  You can find information on the NOMAD software at www.gerad.ca/nomad           */
 /*---------------------------------------------------------------------------------*/
 #include "../Algos/Initialization.hpp"
+#include "../Cache/CacheBase.hpp"
 #include "../Output/OutputQueue.hpp"
 
 NOMAD::Initialization::~Initialization()
@@ -57,6 +58,10 @@ void NOMAD::Initialization::init()
 {
     setStepType(NOMAD::StepType::INITIALIZATION);
     verifyParentNotNull();
+    
+    _x0s = _pbParams->getAttributeValue<NOMAD::ArrayOfPoint>("X0");
+    _n = _pbParams->getAttributeValue<size_t>("DIMENSION");
+    
 }
 
 
@@ -67,7 +72,6 @@ std::string NOMAD::Initialization::getName() const
 
 void NOMAD::Initialization::endImp()
 {
-    
     _trialPointStats.updateParentStats();
 }
 
@@ -75,4 +79,49 @@ void NOMAD::Initialization::incrementCounters()
 {
     // Increment number of calls to start, run and end sequence.
     _trialPointStats.incrementNbCalls();
+}
+
+void NOMAD::Initialization::validateX0s() const
+{
+
+    bool validX0available = false;
+    std::string err;
+
+    for (size_t x0index = 0; x0index < _x0s.size(); x0index++)
+    {
+        auto x0 = _x0s[x0index];
+        if (!x0.isComplete() || x0.size() != _n)
+        {
+            err += "Initialization: eval_x0s: Invalid X0 " + x0.display() + ".";
+        }
+        else
+        {
+            validX0available = true;
+        }
+    }
+
+    if (validX0available)
+    {
+        if (!err.empty())
+        {
+            // Show invalid X0s
+            AddOutputWarning(err);
+        }
+    }
+    else
+    {
+        // No valid X0 available. Throw exception.
+        size_t cacheSize = NOMAD::CacheBase::getInstance()->size();
+        if (cacheSize > 0)
+        {
+            err += " Hint: Try not setting X0 so that the cache is used (";
+            err += std::to_string(cacheSize) + " points).";
+        }
+        else
+        {
+            err += " Cache is empty. Hint: Try setting LH_SEARCH so that the Latin Hypercube Search is used to find initial points.";
+        }
+        throw NOMAD::Exception(__FILE__, __LINE__, err);
+    }
+
 }

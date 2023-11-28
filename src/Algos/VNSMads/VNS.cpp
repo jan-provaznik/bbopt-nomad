@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -92,8 +92,6 @@ bool NOMAD::VNS::runImp()
 {
     _algoSuccessful = false;
 
-    _algoBestSuccess = NOMAD::SuccessType::NOT_EVALUATED;
-
     auto VNSStopReasons = NOMAD::AlgoStopReasons<NOMAD::VNSStopType>::get(_stopReasons);
 
     if ( _stopReasons->checkTerminate() )
@@ -176,7 +174,7 @@ bool NOMAD::VNS::runImp()
     mads.start();
     mads.run();
     mads.end();
-
+    
     if ( _madsStopReasons->testIf(NOMAD::MadsStopType::X0_FAIL) )
     {
         VNSStopReasons->set(NOMAD::VNSStopType::X0_FAILED);
@@ -185,9 +183,7 @@ bool NOMAD::VNS::runImp()
     {
         _barrier = mads.getMegaIterationBarrier();
         _algoSuccessful = true;
-        _algoBestSuccess = NOMAD::SuccessType::FULL_SUCCESS;
     }
-
 
     _termination->start();
     _termination->run();
@@ -215,7 +211,9 @@ void NOMAD::VNS::setupRunParameters()
     // No LH search
     _optRunParams->setAttributeValue("LH_SEARCH", NOMAD::LHSearchType("0 0"));
 
-
+    // No callbacks for mads iterations in VNS optimization : for the Restart_VNS example
+    _optRunParams->setAttributeValue("USER_CALLS_ENABLED", false);
+    
     auto vnsFactor = _runParams->getAttributeValue<size_t>("VNS_MADS_SEARCH_MAX_TRIAL_PTS_NFACTOR");
     auto dim = _pbParams->getAttributeValue<size_t>("DIMENSION");
     if (vnsFactor < NOMAD::INF_SIZE_T)

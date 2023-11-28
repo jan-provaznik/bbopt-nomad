@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -52,8 +52,8 @@
  \see    EvalPoint.cpp
  */
 
-#ifndef __NOMAD_4_2_EVALPOINT__
-#define __NOMAD_4_2_EVALPOINT__
+#ifndef __NOMAD_4_4_EVALPOINT__
+#define __NOMAD_4_4_EVALPOINT__
 
 #ifdef USE_UNORDEREDSET
 #include <unordered_set>
@@ -62,11 +62,13 @@
 #endif
 
 #include "../Eval/Eval.hpp"
+#include "../Eval/MeshBase.hpp"
 #include "../Math/Point.hpp"
 #include "../Type/ComputeType.hpp"
 #include "../Type/EvalType.hpp"
 #include "../Type/StepType.hpp"
 
+#include "../nomad_platform.hpp"
 #include "../nomad_nsbegin.hpp"
 
 
@@ -75,13 +77,16 @@
  An evaluation point gathers the point coordinates \c x, and the blackbox
  outputs at these coordinates \c f(x).
 */
-class EvalPoint : public Point
+class DLL_EVAL_API EvalPoint : public Point
 {
 private:
 
-    DLL_EVAL_API static int     _currentTag;  ///< Value of the current tag
+    static int     _currentTag;  ///< Value of the current tag
 
-    std::map<EvalType,EvalUPtr> _eval;  ///< Value of the evaluation for each eval type
+    EvalUPtr _eval[3];  ///< Value of the evaluation for each eval type. The index number must correspond to EvalType enum order
+                        ///< Index 0: access to BB
+                        ///< Index 1: access to SURROGATE
+                        ///< Index 2: access to MODEL
 
     mutable int                 _tag; ///< Tag: Ordinal representing the order of creation
 
@@ -89,6 +94,8 @@ private:
 
     short                       _numberBBEval; ///< Number of times \c *this point has been evaluated (blackbox only)
 
+    bool                        _evalFromCacheFile; ///<  Evaluation (BB or SURROGATE obtained from reading a cache file
+    
     std::shared_ptr<EvalPoint>  _pointFrom; ///< The frame center which generated \c *this point (blackbox only). Full space.
 
     StepTypeList                _genSteps;   ///< Steps and algorithms that generated this point
@@ -96,6 +103,13 @@ private:
     std::shared_ptr<Direction>  _direction; ///< True direction that generated this point. Full dimension.
     Double                      _angle;     ///< Angle of that direction with last successful dir
 
+    std::shared_ptr<MeshBase> _mesh;
+    
+    int                        _isRevealing;  ///< for DiscoMads, 0 : not revealing, 1: revealing, 2: just revealed at the last eval
+    
+    bool                       _userFailEvalCheck; ///< for DiscoMads handling hidden constraints. True: fail eval point has been checked (not necessarily EvalOk after)
+             
+    
 public:
 
     /*---------------*/
@@ -151,18 +165,29 @@ public:
     /// Get the Eval part of this EvalPoint, using the right EvalType (BB or MODEL)
     Eval* getEval(EvalType evalType) const;
 
+
+    /// Get the single eval with the given eval status. If no eval is defined, return nullptr. If more than one eval has the eval status, throw exception.
+    NOMAD::EvalType getSingleEvalType(NOMAD::EvalStatusType evalStatusType) const;
+    
     /// Set the Eval part of this EvalPoint, using the right EvalType (BB or MODEL)
     void setEval(const Eval& eval, EvalType evalType);
-
-    /// Clear the model evaluation of \c *this
-    void clearModelEval() { _eval[EvalType::MODEL].reset(); }
+    
+    /// Clear the eval type evaluation of \c *this
+    void clearEval(EvalType evalType)
+    {
+        _eval[(size_t) evalType].reset();
+    }
 
     /// Clear the model evaluation of a point
-    static void clearModelEval(EvalPoint& evalPoint) { evalPoint.clearModelEval(); }
+    static void clearModelEval(EvalPoint& evalPoint) { evalPoint.clearEval(EvalType::MODEL); }
 
     /// Get the objective function value of Eval of this EvalType,
     /// using the given ComputeType.
     Double getF(EvalType evalType = EvalType::BB, ComputeType computeType = ComputeType::STANDARD) const;
+
+    /// Get the objective function vector values of Eval of this EvalType,
+    /// using the given ComputeType.
+    ArrayOfDouble getFs(EvalType evalType = EvalType::BB, ComputeType computeType = ComputeType::STANDARD) const;
 
     /// Get the infeasibility measure of the Eval of this EvalType
     Double getH(EvalType evalType = EvalType::BB, ComputeType computeType = ComputeType::STANDARD) const;
@@ -179,7 +204,7 @@ public:
     */
     void setBBO(const std::string &bbo,
                 const BBOutputTypeList& bbOutputTypeList,
-                EvalType evalType = EvalType::BB,
+                EvalType evalType = EvalType::LAST,
                 const bool evalOk = true);
 
     /// Set the true or model blackbox output from a \c string.
@@ -191,10 +216,12 @@ public:
      */
     void setBBO(const std::string &bbo,
                 const std::string &sBBOutputTypes = "",
-                EvalType evalType = EvalType::BB,
+                EvalType evalType = EvalType::LAST,
                 const bool evalOk = true);
 
-    void setBBOutputType(const BBOutputTypeList& bbOutputType, EvalType evalType = EvalType::BB);
+    void setBBOutputType(const BBOutputTypeList& bbOutputType, EvalType evalType);
+    void setBBOutputType(const BBOutputTypeList& bbOutputType);
+    
 
     /// Get evaluation status of the Eval of this EvalType
     EvalStatusType getEvalStatus(EvalType evalType) const;
@@ -213,6 +240,9 @@ public:
     short getNumberBBEval() const { return _numberBBEval; }
     void setNumberBBEval(const short numBBEval) { _numberBBEval = numBBEval; }
     void incNumberBBEval() { _numberBBEval++; }
+    
+    bool getEvalIsFromCacheFile() const { return _evalFromCacheFile ;}
+    void setEvalIsFromCacheFile(bool flag) { _evalFromCacheFile = flag; }
 
     /// Get the Point which was the center when this point was generated
     const std::shared_ptr<EvalPoint> getPointFrom() const { return _pointFrom; }
@@ -220,7 +250,7 @@ public:
     /// Push the step type
     void addGenStep(const StepType& stepType);
     /// Get the downmost step type
-    const StepType& getGenStep() const;
+    StepType getGenStep() const;
     /// Get vector of all step types
     const StepTypeList& getGenSteps() const;
     /// Set vector of all step types
@@ -232,10 +262,38 @@ public:
 
     /// Get Direction from which the point was generated.
     /// Value is set when setPointFrom() is called.
-    const std::shared_ptr<Direction>& getDirection() const { return _direction; }
+    const std::shared_ptr<Direction> getDirection() const { return _direction; }
     /// Get/Set angle of direction with direction of last success
     const Double& getAngle() const { return _angle; }
     void setAngle(const Double& angle) { _angle = angle; }
+
+    
+    void setMesh(const MeshBasePtr mesh);
+    MeshBasePtr getMesh() const { return _mesh; }
+    
+    /// Get revealing status (for DiscoMads)
+    int getRevealingStatus() const {return _isRevealing;}
+    
+    /// Set revealing status (for DiscoMads)
+    /**
+     \param revealingStatus Flag for revealing status IN.
+    */
+    void setRevealingStatus(const int& revealingStatus){_isRevealing=revealingStatus;};
+    
+    /// Get user fail eval check status (for DiscoMads)
+    bool getUserFailEvalCheck() const { return _userFailEvalCheck; }
+    
+    /// Set user fail eval check status (for DiscoMads)
+    /**
+     \param userFailEvalCheck Flag for user fail check IN.
+     */
+    void setUserFailEvalCheck(bool userFailEvalCheck){_userFailEvalCheck=userFailEvalCheck;};
+
+    /// Get revealed constraint value (for some algorithms like DiscoMads)
+    NOMAD::Double getRevealedConstraint() const;
+
+    /// Set revealed constraint value (for some algorithms like DiscoMads) 
+    void setRevealedConstraint(const NOMAD::Double &constraintValue);
 
     /// Get the Point which was the center when this point was generated
     /**
@@ -253,6 +311,12 @@ public:
     /// Get evaluation feasibility flag f the Eval of this EvalType
     bool isFeasible(EvalType evalType, ComputeType computeType = ComputeType::STANDARD) const;
 
+    /// Get feasibility with respect to EB constraints only
+    /**
+     Returns true if point satisfies all EB constraints
+     */
+    bool isEBOk(NOMAD::EvalType evalType) const;
+
     /// Comparison operator used by NM algorithm.
     /**
      \param rhs         Second eval points to compare      -- \b IN.
@@ -263,6 +327,18 @@ public:
     bool dominates(const EvalPoint& rhs,
                    EvalType evalType,
                    ComputeType computeType = ComputeType::STANDARD) const;
+
+    /// Comparison operator used in Multiobjective Optimization
+    /**
+     \param evalType The right-hand side object -- \b IN.
+     \param onlyfvalues Flag which indicates if h-value must be taken into account. By default, set to false -- \b IN.
+     \param computeType How to compute f and h -- \b IN
+     \return A compareType flag which can take the following value: "EQUAL", "INDIFFERENT", "DOMINATED", "DOMINATING", "UNDEFINED"
+     */ 
+    NOMAD::CompareType compMO(const EvalPoint& rhs,
+                              EvalType evalType,
+                              bool onlyfvalues = false,
+                              ComputeType computeType = ComputeType::STANDARD) const;
 
     /// Convert a point from sub space to full space using fixed variables.
     /**
@@ -361,13 +437,13 @@ public:
 
 
 /// Display useful values so that a new EvalPoint could be constructed using these values.
-std::ostream& operator<<(std::ostream& os,
+DLL_EVAL_API std::ostream& operator<<(std::ostream& os,
                          const EvalPoint &evalPoint);
 
 /// Get these values from stream
-std::istream& operator>>(std::istream& is, EvalPoint &evalPoint);
+DLL_EVAL_API std::istream& operator>>(std::istream& is, EvalPoint &evalPoint);
 
-/// Definition for eval point pointer
+/// Definition for eval point shared pointer
 typedef std::shared_ptr<EvalPoint> EvalPointPtr;
 
 typedef std::shared_ptr<const EvalPoint> EvalPointCstPtr;
@@ -376,7 +452,7 @@ typedef std::shared_ptr<const EvalPoint> EvalPointCstPtr;
 typedef std::vector<EvalPointPtr> Block;
 
 /// Utility to find Point in EvalPoint vector
-bool findInList(const Point& point,
+DLL_EVAL_API bool findInList(const Point& point,
                 const std::vector<EvalPoint>& evalPointList,
                 EvalPoint& foundEvalPoint);
 
@@ -387,7 +463,7 @@ bool findInList(const Point& point,
  * Trying to insert an EvalPoint in a set that has already a Point defined
  * for that EvalPoint will return false.
  */
-class EvalPointCompare
+class DLL_EVAL_API EvalPointCompare
 {
 public:
     bool operator() (const EvalPoint& lhs, const EvalPoint& rhs) const
@@ -407,10 +483,10 @@ public:
     static const EvalPointSet emptyEvalPointSet = {}; /// For convenience. Used when calling functions with EvalPointSet as arguments.
 
 /// Definition for EvalPointList
-typedef std::vector<EvalPoint> EvalPointList;
+typedef std::list<EvalPoint> EvalPointList;
 
-void convertPointListToSub(EvalPointList &evalPointList,  const Point& fixedVariable);
-void convertPointListToFull(EvalPointList &evalPointList, const Point& fixedVariable);
+DLL_EVAL_API void convertPointListToSub(std::vector<EvalPoint> &evalPointList,  const Point& fixedVariable);
+DLL_EVAL_API void convertPointListToFull(std::vector<EvalPoint> &evalPointList, const Point& fixedVariable);
 
 
 #include "../nomad_nsend.hpp"
@@ -442,4 +518,4 @@ namespace std {
 #endif // USE_UNORDEREDSET
 
 
-#endif // __NOMAD_4_2_EVALPOINT__
+#endif // __NOMAD_4_4_EVALPOINT__

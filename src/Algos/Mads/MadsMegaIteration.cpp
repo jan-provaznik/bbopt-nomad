@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -53,8 +53,7 @@
 
 void NOMAD::MadsMegaIteration::init()
 {
-    setStepType(NOMAD::StepType::MEGA_ITERATION);
-    
+
     // Create a single MadsIteration
     _madsIteration = std::make_unique<NOMAD::MadsIteration>(this, _k, _mainMesh);
 }
@@ -97,7 +96,7 @@ void NOMAD::MadsMegaIteration::observe(const std::vector<NOMAD::EvalPoint>& eval
 
     // Update barrier with new points.
     _barrier->updateRefBests();
-    _barrier->updateWithPoints(evalPointList, NOMAD::EvalType::BB, NOMAD::ComputeType::STANDARD, _runParams->getAttributeValue<bool>("FRAME_CENTER_USE_CACHE"));
+    _barrier->updateWithPoints(evalPointList, NOMAD::EvalType::BB, NOMAD::ComputeType::STANDARD, _runParams->getAttributeValue<bool>("FRAME_CENTER_USE_CACHE"), true /* true: update incumbents and hMax */);
 
     // Update main mesh
     NOMAD::MadsUpdate update(this);
@@ -123,9 +122,6 @@ void NOMAD::MadsMegaIteration::startImp()
     update.run();
     update.end();
 
-    // Now that update has used the previous MegaIteration success type, reset it
-    setSuccessType(NOMAD::SuccessType::NOT_EVALUATED);
-
     // Verify mesh stop conditions.
     _mainMesh->checkMeshForStopping(_stopReasons);
 
@@ -137,7 +133,6 @@ void NOMAD::MadsMegaIteration::startImp()
 
 bool NOMAD::MadsMegaIteration::runImp()
 {
-    NOMAD::SuccessType bestSuccessYet = NOMAD::SuccessType::NOT_EVALUATED;
 
     std::string s;
 
@@ -170,21 +165,13 @@ bool NOMAD::MadsMegaIteration::runImp()
         OUTPUT_DEBUG_END
 
         _madsIteration->start();
-
         bool iterSuccessful = _madsIteration->run();
-        // Compute MegaIteration success
-        NOMAD::SuccessType iterSuccess = _madsIteration->getSuccessType();
-        if (iterSuccess > bestSuccessYet)
-        {
-            bestSuccessYet = iterSuccess;
-        }
-
         _madsIteration->end();
 
         if (iterSuccessful)
         {
             OUTPUT_DEBUG_START
-            s = getName() + ": new success " + NOMAD::enumStr(iterSuccess);
+            s = getName() + ": new success " + NOMAD::enumStr(_success);
             AddOutputDebug(s);
             OUTPUT_DEBUG_END
         }
@@ -200,7 +187,7 @@ bool NOMAD::MadsMegaIteration::runImp()
 
         // Note: Delta (frame size) will be updated in the Update step next time it is called.
 
-        if (_userInterrupt)
+        if (getUserInterrupt())
         {
             hotRestartOnUserInterrupt();
         }
@@ -209,10 +196,9 @@ bool NOMAD::MadsMegaIteration::runImp()
     // MegaIteration is a success if either a better xFeas or
     // a dominating or partial success for xInf was found.
     // See Algorithm 12.2 from DFBO.
-    setSuccessType(bestSuccessYet);
 
     // return true if we have a partial or full success.
-    return (bestSuccessYet >= NOMAD::SuccessType::PARTIAL_SUCCESS);
+    return (_success >= NOMAD::SuccessType::PARTIAL_SUCCESS);
 }
 
 
@@ -241,7 +227,7 @@ void NOMAD::MadsMegaIteration::read(std::istream& is)
             else
             {
                 std::string err = "Error: Reading a mesh onto a NULL pointer";
-                std::cerr << err;
+                throw NOMAD::Exception(__FILE__,__LINE__, err);
             }
         }
         else if ("ITERATION_COUNT" == name)
@@ -257,7 +243,7 @@ void NOMAD::MadsMegaIteration::read(std::istream& is)
             else
             {
                 std::string err = "Error: Reading a Barrier onto a NULL pointer";
-                std::cerr << err;
+                throw NOMAD::Exception(__FILE__,__LINE__, err);
             }
         }
         else

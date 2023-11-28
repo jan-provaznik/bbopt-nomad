@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -52,6 +52,7 @@
  \see    Eval.hpp
  */
 #include "../Eval/Eval.hpp"
+#include "../Type/EvalType.hpp"
 
 
 /*---------------------------------------------------------------------*/
@@ -78,8 +79,8 @@ NOMAD::Eval::Eval(std::shared_ptr<NOMAD::EvalParameters> params,
 {
     _bbOutputComplete = _bbOutput.isComplete(_bbOutputTypeList);
 
-    NOMAD::Double f = _bbOutput.getObjective(_bbOutputTypeList);
-    if (_bbOutput.getEvalOk() && f.isDefined())
+    NOMAD::ArrayOfDouble f = _bbOutput.getObjectives(_bbOutputTypeList);
+    if (_bbOutput.getEvalOk() && f.isComplete())
     {
         _evalStatus = NOMAD::EvalStatusType::EVAL_OK;
     }
@@ -157,7 +158,7 @@ NOMAD::Double NOMAD::Eval::getF(NOMAD::ComputeType computeType) const
 
     if (NOMAD::EvalStatusType::EVAL_OK != _evalStatus)
     {
-        throw NOMAD::Exception(__FILE__,__LINE__,"getF(): EvalStatusType not EVAL_OK");
+        return NOMAD::INF;
     }
     switch (computeType)
     {
@@ -177,6 +178,35 @@ NOMAD::Double NOMAD::Eval::getF(NOMAD::ComputeType computeType) const
 }
 
 
+NOMAD::ArrayOfDouble NOMAD::Eval::getFs(NOMAD::ComputeType computeType) const
+{
+    NOMAD::ArrayOfDouble fs;
+
+    if (NOMAD::EvalStatusType::EVAL_OK != _evalStatus)
+    {
+        fs.resize(1);
+        fs[0] = NOMAD::INF;
+        return fs;
+    }
+    switch (computeType)
+    {
+        case NOMAD::ComputeType::STANDARD:
+            fs = _bbOutput.getObjectives(_bbOutputTypeList);
+            break;
+        case NOMAD::ComputeType::PHASE_ONE:
+            fs.resize(1);
+            fs[0] = computeFPhaseOne();
+            break;
+        case NOMAD::ComputeType::USER:
+            break;
+        default:
+            throw NOMAD::Exception(__FILE__,__LINE__,"getFs(): ComputeType not supported");
+    }
+
+    return fs;
+}
+
+
 /*-------------------------------------*/
 /*      Get h. Always recomputed.      */
 /*-------------------------------------*/
@@ -186,7 +216,7 @@ NOMAD::Double NOMAD::Eval::getH(NOMAD::ComputeType computeType) const
 
     if (NOMAD::EvalStatusType::EVAL_OK != _evalStatus)
     {
-        throw NOMAD::Exception(__FILE__,__LINE__,"getH(): EvalStatusType not EVAL_OK: " + NOMAD::enumStr(_evalStatus));
+        return NOMAD::INF;
     }
     switch (computeType)
     {
@@ -213,11 +243,11 @@ NOMAD::Double NOMAD::Eval::computeHStandard() const
 
     const NOMAD::ArrayOfDouble bboArray = _bbOutput.getBBOAsArrayOfDouble();
     size_t bboIndex = 0;
-    for (auto bbOutputType : _bbOutputTypeList)
+    for (const auto & bbOutputType : _bbOutputTypeList)
     {
         NOMAD::Double bboI = bboArray[bboIndex];
         bboIndex++;
-        if (!NOMAD::BBOutputTypeIsConstraint(bbOutputType))
+        if (!bbOutputType.isConstraint())
         {
             continue;
         }
@@ -230,11 +260,11 @@ NOMAD::Double NOMAD::Eval::computeHStandard() const
         {
             hPos = true;
             NOMAD::Double hTemp = 0.0;
-            if (NOMAD::BBOutputType::EB == bbOutputType)
+            if (bbOutputType == NOMAD::BBOutputType::Type::EB)
             {
                 hTemp = NOMAD::INF;
             }
-            else if (NOMAD::BBOutputType::PB == bbOutputType)
+            else if (bbOutputType == NOMAD::BBOutputType::Type::PB || bbOutputType == NOMAD::BBOutputType::Type::RPB )
             {
                 hTemp = bboI * bboI;
             }
@@ -273,11 +303,11 @@ NOMAD::Double NOMAD::Eval::computeFPhaseOne() const
     {
         f=0.0;
         size_t bboIndex = 0;
-        for (auto bbOutputType : _bbOutputTypeList)
+        for (const auto & bbOutputType : _bbOutputTypeList)
         {
             NOMAD::Double bboI = bboArray[bboIndex];
             bboIndex++;
-            if (NOMAD::BBOutputType::EB != bbOutputType)
+            if (bbOutputType != NOMAD::BBOutputType::Type::EB)
             {
                 continue;
             }
@@ -318,7 +348,11 @@ void NOMAD::Eval::setBBO(const std::string &bbo,
     _bbOutput = NOMAD::BBOutput(bbo, evalOk);
     _bbOutputTypeList = bbOutputTypeList;
 
-    if (bbOutputTypeList.empty())
+    // Revealed constraint are not set by evaluator. They are updated later by a callback.
+    // Need to set a default value to pass the following tests.
+    updateForRevealedConstraints();
+    
+    if (_bbOutputTypeList.empty())
     {
         // Assume it will be set later.
     }
@@ -330,9 +364,32 @@ void NOMAD::Eval::setBBO(const std::string &bbo,
     else
     {
         _bbOutputComplete = _bbOutput.isComplete(_bbOutputTypeList);
-        _evalStatus = _bbOutput.getObjective(_bbOutputTypeList).isDefined() ? NOMAD::EvalStatusType::EVAL_OK : NOMAD::EvalStatusType::EVAL_FAILED;
+        _evalStatus = _bbOutput.getObjectives(_bbOutputTypeList).isComplete() ? NOMAD::EvalStatusType::EVAL_OK : NOMAD::EvalStatusType::EVAL_FAILED;
     }
 
+}
+
+// Called by setBBO or EvaluatorControl (when setBBO(bbo) is used instead of setBBO(bbo,bbot_list)).
+// Currently used only for DiscoMads revealed RPB
+void NOMAD::Eval::updateForRevealedConstraints()
+{
+    if (_bbOutputTypeList.empty())
+    {
+        return;
+    }
+    
+    auto bboAOD = _bbOutput.getBBOAsArrayOfDouble();
+    // Just ONE RPB constraint can be present
+    size_t diffSize = _bbOutputTypeList.size() - bboAOD.size();
+    auto it =  std::find(_bbOutputTypeList.begin(),_bbOutputTypeList.end(),NOMAD::BBOutputType::RPB);
+    if (diffSize == 1 &&  it!= _bbOutputTypeList.end())
+    {
+        // Update RPB constraint with a feasible default value.
+        _bbOutput = NOMAD::BBOutput(_bbOutput.getBBO()+" -1.0", _bbOutput.getEvalOk());    
+        _bbOutputComplete = _bbOutput.isComplete(_bbOutputTypeList);
+    }
+    
+    
 }
 
 
@@ -342,7 +399,7 @@ void NOMAD::Eval::setBBO(const std::string &bbo,
 bool NOMAD::Eval::operator==(const NOMAD::Eval &e) const
 {
     // Ignore eval status for comparison.
-    // Compare f and h.
+    // Compare f (single objective) and h.
 
     bool equal = false;
     NOMAD::Double f1;
@@ -407,28 +464,128 @@ bool NOMAD::Eval::operator<(const NOMAD::Eval &eval) const
 /*--------------------------------------------------------------------------*/
 bool NOMAD::Eval::dominates(const NOMAD::Eval &eval, NOMAD::ComputeType computeType) const
 {
-    bool dom = false;
+    
+// Original version for testing dominance. Now use the more general compMO.
+//    bool dom = false;
+//    double f1 = getF(computeType).todouble();
+//    NOMAD::Double h1 = getH(computeType);
+//    double f2 = eval.getF(computeType).todouble();
+//    NOMAD::Double h2 = eval.getH(computeType);
+//
+//    if (isFeasible(computeType) && eval.isFeasible(computeType))
+//    {
+//        dom = (f1 < f2);
+//    }
+//    else if (!isFeasible(computeType) && !eval.isFeasible(computeType))
+//    {
+//        if (h1 != NOMAD::INF)
+//        {
+//            dom = (f1 <= f2) && (h1 <= h2) && ((f1 < f2) || (h1 < h2));
+//        }
+//    }
+//    // else - comparing a feasible point with an unfeasible point.
+//    // Always false. Do nothing.
 
-    double f1 = getF(computeType).todouble();
+    
+    NOMAD::CompareType compare = compMO(eval, false /* false: compare f and h*/, computeType);
+    // comparing a feasible point with an unfeasible point --> UNDEFINED -> false.
+    return (NOMAD::CompareType::DOMINATING == compare);
+}
+
+NOMAD::CompareType NOMAD::Eval::compMO(const NOMAD::Eval &eval, 
+                                       bool onlyfvalues,
+                                       NOMAD::ComputeType computeType) const
+{
+    NOMAD::CompareType compareFlag = NOMAD::CompareType::UNDEFINED;
+
+    NOMAD::ArrayOfDouble f1 = getFs(computeType);
     NOMAD::Double h1 = getH(computeType);
-    double f2 = eval.getF(computeType).todouble();
+    NOMAD::ArrayOfDouble f2 = eval.getFs(computeType);
     NOMAD::Double h2 = eval.getH(computeType);
 
+    // Comparing objective vectors of different size is undefined
+    if (f1.size() != f2.size())
+    {
+        return compareFlag;
+    }
+
+    // The comparison code has been adapted from
+    // Jaszkiewicz, A., & Lust, T. (2018).
+    // ND-tree-based update: a fast algorithm for the dynamic nondominance problem. 
+    // IEEE Transactions on Evolutionary Computation, 22(5), 778-791.
     if (isFeasible(computeType) && eval.isFeasible(computeType))
     {
-        dom = (f1 < f2);
+        bool isbetter = false;
+        bool isworse = false;
+        for (size_t i = 0; i < f1.size(); ++i)
+        {
+            if (f1[i].todouble() < f2[i].todouble())
+            {
+                isbetter = true;
+            }
+            if (f2[i].todouble() < f1[i].todouble())
+            {
+                isworse = true;
+            }
+            if (isworse && isbetter)
+            {
+                break;
+            }
+        }
+        if (isworse)
+        {
+            compareFlag = isbetter ? NOMAD::CompareType::INDIFFERENT : NOMAD::CompareType::DOMINATED; 
+        }
+        else
+        {
+            compareFlag = isbetter ? NOMAD::CompareType::DOMINATING : NOMAD::CompareType::EQUAL;
+        }
     }
     else if (!isFeasible(computeType) && !eval.isFeasible(computeType))
     {
         if (h1 != NOMAD::INF)
         {
-            dom = (f1 <= f2) && (h1 <= h2) && ((f1 < f2) || (h1 < h2));
+            bool isbetter = false;
+            bool isworse = false;
+            for (size_t i = 0; i < f1.size(); ++i)
+            {
+                if (f1[i].todouble() < f2[i].todouble())
+                {
+                    isbetter = true;
+                }
+                if (f2[i].todouble() < f1[i].todouble())
+                {   
+                    isworse = true;
+                }
+                if (isworse && isbetter)
+                {
+                    break;
+                }
+            }
+            if (!(isworse && isbetter) && !onlyfvalues)
+            {
+                if (h1 < h2)
+                {
+                    isbetter = true;
+                }
+                if (h2 < h1)
+                {
+                    isworse = true;
+                }
+            }
+            if (isworse)
+            {
+                compareFlag = isbetter ? NOMAD::CompareType::INDIFFERENT : NOMAD::CompareType::DOMINATED; 
+            }
+            else
+            {
+                compareFlag = isbetter ? NOMAD::CompareType::DOMINATING : NOMAD::CompareType::EQUAL;
+            }
         }
     }
-    // else - comparing a feasible point with an unfeasible point.
-    // Always false. Do nothing.
-
-    return dom;
+    
+    // Comparing an infeasible objective vector with a feasible objective vector is always UNDEFINED.
+    return compareFlag;
 }
 
 
@@ -501,13 +658,14 @@ NOMAD::SuccessType NOMAD::Eval::computeSuccessType(const NOMAD::Eval* eval1,
     // PARTIAL_SUCCESS,    // Partial success (improving). Found an infeasible
     //                        solution with a better h. f is worse.
     // FULL_SUCCESS        // Full success (dominating)
-    NOMAD::SuccessType success = NOMAD::SuccessType::NOT_EVALUATED;
+    NOMAD::SuccessType success = NOMAD::SuccessType::UNDEFINED; /// Will trigger exception if not changed
 
     if (nullptr != eval1)
     {
         if (nullptr == eval2)
         {
-            if (eval1->getH(computeType) > hMax)
+            NOMAD::Double h = eval1->getH(computeType);
+            if (!h.isDefined() || h > hMax || h == NOMAD::INF)
             {
                 // Even if eval2 is NULL, this case is not successful.
                 success = NOMAD::SuccessType::UNSUCCESSFUL;
@@ -575,12 +733,12 @@ std::string NOMAD::Eval::display(NOMAD::ComputeType computeType, const int prec)
 
     try
     {
-        NOMAD::Double f = getF(computeType);
+        NOMAD::ArrayOfDouble f = getFs(computeType);
         NOMAD::Double h = getH(computeType);
         if (f.isDefined())
         {
             s += "f = ";
-            s += f.display(prec);
+            s += f.display(NOMAD::ArrayOfDouble(f.size(),prec));
         }
         else
         {
@@ -680,7 +838,7 @@ std::ostream& NOMAD::operator<<(std::ostream& out, const NOMAD::EvalStatusType &
             break;
         default:
             // Do not throw.
-            std::cerr << "Warning: Unknown eval status type" << std::endl;
+            std::cout << "Warning: Unknown eval status type" << std::endl;
             // We do not want a small mistake to disrupt the flow.
             break;
     }
@@ -693,6 +851,14 @@ std::istream& NOMAD::operator>>(std::istream& is, NOMAD::EvalStatusType &evalSta
 {
     std::string s;
     is >> s;
+    
+    // Remove BB_/SURROGATE_/MODEL_ (this may be used in cache file to show the different eval types)
+    size_t indSep = s.find("_");
+    if (indSep < std::string::npos && NOMAD::stringToEvalType(s.substr(0, indSep), true /* true: do not trigger exception */) != NOMAD::EvalType::UNDEFINED)
+    {
+        s.erase(0,indSep+1);
+    }
+    
 
     if ("EVAL_NOT_STARTED" == s)
     {
@@ -728,6 +894,8 @@ std::istream& NOMAD::operator>>(std::istream& is, NOMAD::EvalStatusType &evalSta
     }
     else
     {
+        evalStatus = NOMAD::EvalStatusType::EVAL_STATUS_UNDEFINED;
+        
         // Put back s to istream.
         for (unsigned i = 0; i < s.size(); i++)
         {

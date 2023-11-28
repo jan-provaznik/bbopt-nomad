@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -217,7 +217,7 @@ public:
                    int nbOutputs,
                    bool hasSgte,
                    NomadUserDataPtr user_data_ptr)
-        : NOMAD::Evaluator(evalParams),
+        : NOMAD::Evaluator(evalParams, NOMAD::EvalType::BB),
           _bb_single(bb_single),
           _nbInputs(nbInputs),
           _nbOutputs(nbOutputs),
@@ -255,15 +255,12 @@ public:
             eval_ok = _bb_single(_nbInputs, bb_inputs, _nbOutputs, bb_outputs, &countEval, _data_user_ptr);
 
             // collect outputs parameters
-            auto bbOutputType = _evalParams->getAttributeValue<NOMAD::BBOutputTypeList>("BB_OUTPUT_TYPE");
             std::string bbo("");
             for (size_t i = 0; i < (size_t)_nbOutputs; ++i)
             {
                 bbo += std::to_string(bb_outputs[i]) + " ";
             }
-
-            const NOMAD::EvalType &evalType = getEvalType();
-            x.setBBO(bbo, bbOutputType, evalType);
+            x.setBBO(bbo,_bbOutputTypeList, _evalType);
         }
         catch (std::exception &e)
         {
@@ -342,13 +339,13 @@ bool solveNomadProblem(NomadProblem nomad_problem,
         // Must perform check and comply before creating the evaluator
         nomad_problem->p->checkAndComply();
 
-        std::unique_ptr<CInterfaceEval> ev(new CInterfaceEval(nomad_problem->p->getEvalParams(),
-                                                              nomad_problem->bb_single,
-                                                              nomad_problem->nb_inputs,
-                                                              nomad_problem->nb_outputs,
-                                                              false,
-                                                              data_user_ptr));
-        TheMainStep.setEvaluator(std::move(ev));
+        auto ev = std::make_unique<CInterfaceEval>(nomad_problem->p->getEvalParams(),
+                                                   nomad_problem->bb_single,
+                                                   nomad_problem->nb_inputs,
+                                                   nomad_problem->nb_outputs,
+                                                   false,
+                                                   data_user_ptr);
+        TheMainStep.addEvaluator(std::move(ev));
 
         TheMainStep.start();
         stopflag = TheMainStep.run();
@@ -357,29 +354,35 @@ bool solveNomadProblem(NomadProblem nomad_problem,
         // Set the best feasible and best infeasible solutions ; TODO maybe change
         std::vector<NOMAD::EvalPoint> evalPointFeasList, evalPointInfList;
         const NOMAD::EvalType &evalType = NOMAD::EvalType::BB;
-        auto nbFeas = NOMAD::CacheBase::getInstance()->findBestFeas(evalPointFeasList, NOMAD::Point(), evalType, NOMAD::ComputeType::STANDARD, nullptr);
-        auto nbInf = NOMAD::CacheBase::getInstance()->findBestInf(evalPointInfList, NOMAD::INF, NOMAD::Point(), evalType, NOMAD::ComputeType::STANDARD, nullptr);
+        size_t nbFeas = NOMAD::CacheBase::getInstance()->findBestFeas(evalPointFeasList, NOMAD::Point(), evalType, NOMAD::ComputeType::STANDARD);
+        size_t nbInf = NOMAD::CacheBase::getInstance()->findBestInf(evalPointInfList, NOMAD::INF, NOMAD::Point(), evalType, NOMAD::ComputeType::STANDARD);
 
-        if (nbInf > 0)
-        {
-            // Use first infeasible point. This could be generalized to show
-            // all infeasible points.
-            // Smart pointers should also be used.
-            // For now, keep the same logic as with PyNomad 1.
-            // One of the pointer is set to null to identify the type of solution
-            NOMAD::EvalPoint evalPointInf = evalPointInfList[0];
-            bestInfEvalPoint = std::make_shared<NOMAD::EvalPoint>(evalPointInf);
-            if (0 == nbFeas)
-            {
-                bestFeasEvalPoint = nullptr;
-            }
-        }
+        // For now
+        // If nbFeas > 0 we return a single best feasible point (no infeasible point)
+        // Else (if nbFeas == 0) we return the least infeasible point with the smallest f (index 0, see findBestInf)
+        // Maybe this could be generalized to show the best feasible point and all undominated infeasible points.
+        // The same logic for Nomad C and Matlab interfaces and for PyNomad.
         if (nbFeas > 0)
         {
             NOMAD::EvalPoint evalPointFeas = evalPointFeasList[0];
             bestFeasEvalPoint = std::make_shared<NOMAD::EvalPoint>(evalPointFeas);
             bestInfEvalPoint = nullptr;
         }
+        else if (nbFeas == 0)
+        {
+            bestFeasEvalPoint = nullptr;
+            if (nbInf > 0)
+            {
+                // One of the pointer is set to null to identify the type of solution
+                NOMAD::EvalPoint evalPointInf = evalPointInfList[0];
+                bestInfEvalPoint = std::make_shared<NOMAD::EvalPoint>(evalPointInf);
+            }
+            else if (nbInf == 0)
+            {
+                bestInfEvalPoint = nullptr;
+            }
+        }
+
 
         if (bestInfEvalPoint != nullptr)
         {

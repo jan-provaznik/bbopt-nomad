@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -51,8 +51,8 @@
  * \date   February 2018
  */
 
-#ifndef __NOMAD_4_2_STATSINFO__
-#define __NOMAD_4_2_STATSINFO__
+#ifndef __NOMAD_4_4_STATSINFO__
+#define __NOMAD_4_4_STATSINFO__
 
 #include <memory>   // For unique_ptr
 #include <vector>
@@ -60,6 +60,7 @@
 #include "../Math/Point.hpp"
 #include "../Util/ArrayOfString.hpp"
 
+#include "../nomad_platform.hpp"
 #include "../nomad_nsbegin.hpp"
 
 
@@ -108,6 +109,7 @@ enum class DisplayStatsType
     //DS_VAR        ,    ///< One variable
     //DS_STAT_SUM   ,    ///< Stat sum
     //DS_STAT_AVG   ,    ///< Stat avg
+    DS_TAG,             ///< Tag
     DS_USER         ,  ///< User-defined string
     DS_UNDEFINED       ///< Undefined value
     //   (keep in last position)
@@ -120,10 +122,11 @@ typedef ArrayOfString DisplayStatsTypeList;
 /**
  Also holds information about stats file.
  */
-class StatsInfo
+class DLL_UTIL_API StatsInfo
 {
 private:
     // Stats infos
+    bool            _failedEval;
     Double          _obj;
     Double          _consH;
     Double          _hMax;
@@ -154,6 +157,7 @@ private:
     int             _threadAlgoNum;
     int             _threadNum;
     bool            _relativeSuccess;   ///> Used for priting star, or when DISPLAY_ALL_EVAL is false.
+    size_t          _tag;         
     std::string     _comment;   ///> General comment, ex. Algorithm from where this point was generated.
     std::string     _genStep;   ///> Step in which this point was generated
     SuccessType     _success;   ///> Success type for this evaluation
@@ -173,6 +177,7 @@ public:
 public:
 
     // Get/Set
+    void setFailEval (bool fail)                    { _failedEval = fail;}
     void setObj(const Double& obj)                  { _obj = obj; }
     void setConsH(const Double consH)               { _consH = consH; }
     void setHMax(const Double hMax)                 { _hMax = hMax; }
@@ -204,11 +209,13 @@ public:
     void setThreadNum(const int threadNum)          { _threadNum = threadNum; }
     void setRelativeSuccess(bool relativeSuccess)   { _relativeSuccess = relativeSuccess; }
     void setComment(const std::string& comment)     { _comment = comment; }
+    void setTag(const size_t tag) { _tag = tag; }
     void setGenStep(const std::string& genStep)     { _genStep = genStep; }
     void setSuccessType(const SuccessType& success) { _success = success; }
 
     // Should this stats be printed even if DISPLAY_ALL_EVAL is false
-    bool alwaysDisplay(const bool displayInfeasible,
+    bool alwaysDisplay(const bool displayFailed,
+                       const bool displayInfeasible,
                        const bool displayUnsuccessful,
                        const bool forStatsFile) const;
 
@@ -245,4 +252,4 @@ inline std::ostream& operator<< (std::ostream& os, const DisplayStatsType& displ
 
 #include "../nomad_nsend.hpp"
 
-#endif // __NOMAD_4_2_STATSINFO__
+#endif // __NOMAD_4_4_STATSINFO__

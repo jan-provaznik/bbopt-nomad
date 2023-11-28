@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -52,6 +52,7 @@
 #include "../../Algos/SgtelibModel/SgtelibModelMegaIteration.hpp"
 #include "../../Algos/SubproblemManager.hpp"
 #include "../../Cache/CacheBase.hpp"
+#include "../../Eval/ProgressiveBarrier.hpp"
 #include "../../Eval/ComputeSuccessType.hpp"
 #include "../../Output/OutputQueue.hpp"
 
@@ -87,7 +88,7 @@ void NOMAD::SgtelibModel::init()
     }
 
     // Count the number of constraints
-    const auto bbot = NOMAD::SgtelibModel::getBBOutputType();
+    const auto bbot = NOMAD::Algorithm::getBbOutputType();
     size_t nbConstraints = NOMAD::getNbConstraints(bbot);
     _nbModels = getNbModels(modelFeasibility, nbConstraints);
 
@@ -251,12 +252,12 @@ std::vector<NOMAD::EvalPoint> NOMAD::SgtelibModel::getX0s() const
 
 
 // Return point used as frame center.
-std::shared_ptr<NOMAD::EvalPoint> NOMAD::SgtelibModel::getX0() const
+NOMAD::EvalPointPtr NOMAD::SgtelibModel::getX0() const
 {
-    std::shared_ptr<NOMAD::EvalPoint> x0;
+    NOMAD::EvalPointPtr x0 = nullptr;
     if (nullptr != _barrierForX0s)
     {
-        x0 = std::make_shared<NOMAD::EvalPoint>(_barrierForX0s->getFirstPoint());
+        x0 = _barrierForX0s->getFirstPoint();
     }
     return x0;
 }
@@ -311,7 +312,7 @@ bool NOMAD::SgtelibModel::runImp()
 
     if (!_termination->terminate(k))
     {
-        // Barrier constructor automatically finds the best points in the cache.
+        // ProgressiveBarrier constructor automatically finds the best points in the cache.
         // This barrier is not the same as the _barrierForX0s member, which
         // is used for model optimization.
         // This barrier is used for MegaIteration management.
@@ -319,11 +320,11 @@ bool NOMAD::SgtelibModel::runImp()
         if (nullptr == barrier)
         {
             auto hMax = _runParams->getAttributeValue<NOMAD::Double>("H_MAX_0");
-            barrier = std::make_shared<NOMAD::Barrier>(hMax, NOMAD::SubproblemManager::getInstance()->getSubFixedVariable(this),
+            barrier = std::make_shared<NOMAD::ProgressiveBarrier>(hMax, NOMAD::SubproblemManager::getInstance()->getSubFixedVariable(this),
                                                        NOMAD::EvalType::BB,
                                                        NOMAD::EvcInterface::getEvaluatorControl()->getComputeType());
         }
-        NOMAD::SuccessType megaIterSuccess = NOMAD::SuccessType::NOT_EVALUATED;
+        NOMAD::SuccessType megaIterSuccess = NOMAD::SuccessType::UNDEFINED;
         
         // Create a MegaIteration: may manage multiple iterations at the same time.
         NOMAD::SgtelibModelMegaIteration megaIteration(this, k, barrier, megaIterSuccess);
@@ -338,7 +339,7 @@ bool NOMAD::SgtelibModel::runImp()
             k       = megaIteration.getK();
             megaIterSuccess = megaIteration.NOMAD::MegaIteration::getSuccessType();
 
-            if (_userInterrupt)
+            if (getUserInterrupt())
             {
                 hotRestartOnUserInterrupt();
             }
@@ -432,7 +433,7 @@ size_t NOMAD::SgtelibModel::getNbModels(const NOMAD::SgtelibModelFeasibilityType
             nbModels = 2;
             break;
         case NOMAD::SgtelibModelFeasibilityType::UNDEFINED:
-            std::cerr << "UNDEFINED SGTELIB_MODEL_FEASIBILITY" << std::endl;
+            throw SGTELIB::Exception(__FILE__, __LINE__, "SgtelibModel: UNDEFINED SGTELIB_MODEL_FEASIBILITY");
             break;
     }
 
@@ -448,7 +449,7 @@ NOMAD::EvalPointSet NOMAD::SgtelibModel::createOraclePoints()
     // For this reason, k and success are irrelevant.
     // Barrier points are used to create Iterations. A sub Mads will be run
     // on every Iteration, using model evaluation.
-    NOMAD::SgtelibModelMegaIteration megaIteration(this, 0, _barrierForX0s, NOMAD::SuccessType::NOT_EVALUATED);
+    NOMAD::SgtelibModelMegaIteration megaIteration(this, 0, _barrierForX0s, NOMAD::SuccessType::UNDEFINED);
     megaIteration.generateTrialPoints();
 
     NOMAD::OutputQueue::Flush();

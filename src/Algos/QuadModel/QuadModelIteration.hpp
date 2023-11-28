@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -44,12 +44,12 @@
 /*                                                                                 */
 /*  You can find information on the NOMAD software at www.gerad.ca/nomad           */
 /*---------------------------------------------------------------------------------*/
-#ifndef __NOMAD_4_2_QUAD_MODEL_ITERATION__
-#define __NOMAD_4_2_QUAD_MODEL_ITERATION__
+#ifndef __NOMAD_4_4_QUAD_MODEL_ITERATION__
+#define __NOMAD_4_4_QUAD_MODEL_ITERATION__
 
 #include "../../Algos/Iteration.hpp"
-#include "../../Algos/MeshBase.hpp"
 #include "../../Eval/EvalPoint.hpp"
+#include "../../Eval/MeshBase.hpp"
 #include "../../../ext/sgtelib/src/Surrogate.hpp"
 #include "../../../ext/sgtelib/src/TrainingSet.hpp"
 
@@ -62,11 +62,13 @@ private:
 
     void init();
 
+
     /**
-     - The center point of the model.
-     - Cache points used to build the model are taken around this point.
-     */
-    const EvalPointPtr _center;
+     - The reference center point
+     - Can be null, so trial points are used to define model center.
+    */
+    const EvalPointPtr _refCenter;
+
 
     /**
      The trial points use to create the radiuses to select the training set when building the model
@@ -78,16 +80,18 @@ private:
      */
     const MeshBasePtr _madsMesh;
 
+    bool _useForSortingTrialPoints;
+    
+protected:
     std::shared_ptr<SGTELIB::TrainingSet>   _trainingSet; ///<
     std::shared_ptr<SGTELIB::Surrogate>     _model;
 
-    bool _useForSortingTrialPoints;
     
 public:
     /// Constructor
     /**
      \param parentStep      The parent of this step -- \b IN.
-     \param center     The frame center -- \b IN.
+     \param center     The frame center (cen be null, so model center is defined with trial points) -- \b IN.
      \param k               The iteration number -- \b IN.
      \param madsMesh        Mads Mesh for trial point projection (can be null) -- \b IN.
      \param trialPoints   Trial points used to define the selection box  (can be empty, so box is defined with mesh)  -- \b IN.
@@ -98,7 +102,7 @@ public:
                                 const MeshBasePtr madsMesh = nullptr,
                                 const EvalPointSet & trialPoints = emptyEvalPointSet )
       : Iteration(parentStep, k) ,
-        _center(center),
+        _refCenter(center),
         _madsMesh(madsMesh),
         _useForSortingTrialPoints(false),
         _trialPoints(trialPoints)
@@ -131,7 +135,7 @@ public:
     const std::shared_ptr<SGTELIB::TrainingSet> getTrainingSet() const { return _trainingSet; }
 
     /// Access to the frame center (can be undefined)
-    const EvalPointPtr getModelCenter() const { return _center ; }
+    const EvalPointPtr getRefCenter() const { return _refCenter ; }
 
     /// Reimplement to have access to the mesh (can be null)
     const MeshBasePtr getMesh() const override { return _madsMesh; }
@@ -153,4 +157,4 @@ protected:
 
 #include "../../nomad_nsend.hpp"
 
-#endif // __NOMAD_4_2_QUAD_MODEL_ITERATION__
+#endif // __NOMAD_4_4_QUAD_MODEL_ITERATION__

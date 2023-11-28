@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -44,8 +44,8 @@
 /*                                                                                 */
 /*  You can find information on the NOMAD software at www.gerad.ca/nomad           */
 /*---------------------------------------------------------------------------------*/
-#ifndef __NOMAD_4_2_INITIALIZATION__
-#define __NOMAD_4_2_INITIALIZATION__
+#ifndef __NOMAD_4_4_INITIALIZATION__
+#define __NOMAD_4_4_INITIALIZATION__
 
 #include "../Algos/Step.hpp"
 #include "../Algos/TrialPointStats.hpp"
@@ -59,9 +59,12 @@
 class Initialization: public Step
 {
 protected:
+    
+    ArrayOfPoint _x0s;
+    size_t _n;
     TrialPointStats                        _trialPointStats;   ///< The trial point counters stats for initialization
     
-    std::shared_ptr<Barrier> _barrier;   ///< Barrier constructed from evaluated X0s
+    std::shared_ptr<BarrierBase> _barrier;   ///< Barrier constructed from evaluated X0s
 
     
 public:
@@ -85,14 +88,16 @@ public:
 
     std::string getName() const override;
 
-    const std::shared_ptr<Barrier>& getBarrier() const { return _barrier; }
+    const std::shared_ptr<BarrierBase>& getBarrier() const { return _barrier; }
 
 protected:
     /// Helper for constructor
     void init();
+    
+    void validateX0s() const;
 
 public:
-    virtual void startImp()    override {}
+    virtual void startImp()    override {} ;
     virtual bool runImp()      override = 0;
     virtual void endImp()      override;
 
@@ -103,4 +108,4 @@ private:
 
 #include "../nomad_nsend.hpp"
 
-#endif // __NOMAD_4_2_INITIALIZATION__
+#endif // __NOMAD_4_4_INITIALIZATION__

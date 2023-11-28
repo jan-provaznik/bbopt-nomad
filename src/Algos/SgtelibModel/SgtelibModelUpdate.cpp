@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -71,7 +71,6 @@ void NOMAD::SgtelibModelUpdate::init()
     NOMAD::CacheBase::getInstance()->clearModelEval(NOMAD::getThreadNum());
 }
 
-
 std::string NOMAD::SgtelibModelUpdate::getName() const
 {
     return getAlgoName() + NOMAD::stepTypeToString(_stepType);
@@ -82,8 +81,8 @@ void NOMAD::SgtelibModelUpdate::startImp()
 {
     auto modelDisplay = _runParams->getAttributeValue<std::string>("SGTELIB_MODEL_DISPLAY");
     _displayLevel = (std::string::npos != modelDisplay.find("U"))
-                        ? NOMAD::OutputLevel::LEVEL_INFO
-                        : NOMAD::OutputLevel::LEVEL_DEBUGDEBUG;
+    ? NOMAD::OutputLevel::LEVEL_INFO
+    : NOMAD::OutputLevel::LEVEL_DEBUGDEBUG;
 
 }
 
@@ -112,7 +111,7 @@ bool NOMAD::SgtelibModelUpdate::runImp()
     }
 
     auto n = _pbParams->getAttributeValue<size_t>("DIMENSION");
-    const auto bbot = NOMAD::SgtelibModel::getBBOutputType();
+    const auto bbot = NOMAD::Algorithm::getBbOutputType();
     size_t nbConstraints = NOMAD::getNbConstraints(bbot);
     size_t nbModels = NOMAD::SgtelibModel::getNbModels(modelFeasibility, nbConstraints);
 
@@ -154,6 +153,11 @@ bool NOMAD::SgtelibModelUpdate::runImp()
 
     // Minimum and maximum number of valid points to build a model
     const size_t minNbPoints = _runParams->getAttributeValue<size_t>("SGTELIB_MIN_POINTS_FOR_MODEL");
+    if (minNbPoints == NOMAD::INF_SIZE_T)
+    {
+        throw NOMAD::Exception(__FILE__,__LINE__,"SGTELIB_MIN_POINTS_FOR_MODEL cannot be infinite.");
+    }
+    
     // Not using SGTELIB_MAX_POINTS_FOR_MODEL, see below.
     //const size_t maxNbPoints = _runParams->getAttributeValue<size_t>("SGTELIB_MAX_POINTS_FOR_MODEL");
 
@@ -174,15 +178,15 @@ bool NOMAD::SgtelibModelUpdate::runImp()
     auto allCenters = megaIter->getBarrier()->getAllPoints();
     size_t nbCenters = allCenters.size();
     std::vector<NOMAD::EvalPoint> evalPointListWithinRadius;
-    for (auto evalPoint : evalPointList)
+    for (const auto & evalPoint : evalPointList)
     {
         bool pointAdded = false;
         for (size_t centerIndex = 0;
              centerIndex < nbCenters && !pointAdded;
              centerIndex++)
         {
-            auto center = allCenters[centerIndex];
-            auto distances = NOMAD::Point::vectorize(*center.getX(), evalPoint);
+            NOMAD::EvalPoint center = allCenters[centerIndex];
+            auto distances = NOMAD::Point::vectorize(*(center.getX()), evalPoint);
             distances = distances.abs();
             if (distances <= radius)
             {
@@ -269,7 +273,7 @@ bool NOMAD::SgtelibModelUpdate::runImp()
                 k = 1;
                 for (size_t j = 0; j < bbo.size(); j++)
                 {
-                    if (NOMAD::isConstraint(bbot[j]))
+                    if (bbot[j].isConstraint())
                     {
                         row_Z.set(0, k, bbo[j].todouble());
                         k++;
@@ -289,7 +293,7 @@ bool NOMAD::SgtelibModelUpdate::runImp()
                 v = -NOMAD::INF;
                 for (size_t j = 0; j < bbot.size(); j++)
                 {
-                    if (NOMAD::isConstraint(bbot[j]))
+                    if (bbot[j].isConstraint())
                     {
                         v = max(v, bbo[j]);
                     }

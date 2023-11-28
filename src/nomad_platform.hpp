@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -44,7 +44,7 @@
 /*                                                                                 */
 /*  You can find information on the NOMAD software at www.gerad.ca/nomad           */
 /*---------------------------------------------------------------------------------*/
-#ifdef _WIN32
+#ifdef _MSC_VER
 #define NOMAD_UNUSED(x)
 #define NOMAD_PRETTY_FUNCTION __FUNCSIG__
 #else
@@ -52,12 +52,12 @@
 #define NOMAD_PRETTY_FUNCTION __PRETTY_FUNCTION__
 #endif
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #pragma warning(disable:4275)
 #pragma warning(disable:4251)
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(NOMAD_STATIC_BUILD)
 #ifdef DLL_UTIL_EXPORTS
 # define DLL_UTIL_API __declspec(dllexport)
 #else

@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -46,6 +46,7 @@
 /*---------------------------------------------------------------------------------*/
 
 #include "../../Algos/AlgoStopReasons.hpp"
+#include "../../Algos/DMultiMads/DMultiMadsBarrier.hpp"
 #include "../../Algos/Mads/DoublePollMethod.hpp"
 #include "../../Algos/Mads/NP1UniPollMethod.hpp"
 #include "../../Algos/Mads/Ortho2NPollMethod.hpp"
@@ -63,13 +64,43 @@ double NOMAD::Poll::_pollTime;
 double NOMAD::Poll::_pollEvalTime;
 #endif // TIME_STATS
 
+/// <#Description#>
 void NOMAD::Poll::init()
 {
     setStepType(NOMAD::StepType::POLL);
     verifyParentNotNull();
     
-    // Unlike for search methods, we cannot generate poll methods during init because they depend on primary and secondary poll centers. The init is called once when instanciating Mads poll and poll centers change.
+    _trialPointMaxAddUp = 0;
+    
+    _hasSecondPass = false;
+    if ( nullptr != _runParams)
+    {
+        // Ortho n+1 poll methods generate n trial points in a first pass and, if not successful, generate the n+1 th point (second pass)
+        
+        for (auto dirType : _runParams->getAttributeValue<NOMAD::DirectionTypeList>("DIRECTION_TYPE"))
+        {
+            if (   NOMAD::DirectionType::ORTHO_NP1_NEG == dirType
+                || NOMAD::DirectionType::ORTHO_NP1_QUAD == dirType)
+            {
+                _hasSecondPass = true;
+                break;
+            }
+        }
+        
+        // The direction types for primary and secondary poll centers
+        _primaryDirectionTypes = _runParams->getAttributeValue<DirectionTypeList>("DIRECTION_TYPE");
+        _secondaryDirectionTypes = _runParams->getAttributeValue<DirectionTypeList>("DIRECTION_TYPE_SECONDARY_POLL");
+        
+        // Rho parameter of the progressive barrier. Used to choose if the primary frame center is the feasible or infeasible incumbent.
+        _rho = _runParams->getAttributeValue<NOMAD::Double>("RHO");
+        
+        // Complete the primary and secondary poll directions to reached the given target number. Only for single pass direction type (ortho 2n). Managed by checkAndComply.
+        _trialPointMaxAddUp = _runParams->getAttributeValue<size_t>("TRIAL_POINT_MAX_ADD_UP");
+        
+    }
 
+    
+    // Unlike for search methods, we cannot generate poll methods during init because they depend on primary and secondary poll centers. The init is called once when instanciating Mads poll and poll centers change.
 }
 
 
@@ -102,28 +133,28 @@ bool NOMAD::Poll::runImp()
     double pollEvalStartTime = NOMAD::EvcInterface::getEvaluatorControl()->getEvalTime();
 #endif // TIME_STATS
 
-    // 1- Create poll methods and generate points
+    // 1- Create poll methods and generate points (first pass)
     generateTrialPoints();
 
-    // 2- Evaluate points
-    bool hasSecondPass = false;
-    for (auto dirType : _runParams->getAttributeValue<NOMAD::DirectionTypeList>("DIRECTION_TYPE"))
-    {
-        if (   NOMAD::DirectionType::ORTHO_NP1_NEG == dirType
-            || NOMAD::DirectionType::ORTHO_NP1_QUAD == dirType)
-        {
-            hasSecondPass = true;
-            break;
-        }
-    }
     if ( ! _stopReasons->checkTerminate() )
     {
+        // 1b- Count the points that would need eval (check cache and barrier)
+        countTrialPointsThatNeedEval(this);
+        
+        // 1c- Generate extra trial points (using SINGLE direction) to reach a given number (if provided). Only for single pass direction type (ortho 2n).
+        generateTrialPointsExtra();
+        
+        // 2- Complete trial points information (first pass)
+        completeTrialPointsInformation();
+        
+        // 3- Evaluate points (first pass)
         evalTrialPoints(this);
-        pollSuccessful = (getSuccessType() >= NOMAD::SuccessType::FULL_SUCCESS);
+        pollSuccessful = (_success >= NOMAD::SuccessType::FULL_SUCCESS);
+    
     }
-
-    // 3- Second evaluation pass: Ortho N+1
-    if (!_stopReasons->checkTerminate() && !pollSuccessful && hasSecondPass)
+    
+    // Second pass: only for Ortho N+1 and no success
+    if (!_stopReasons->checkTerminate() && !pollSuccessful && _hasSecondPass)
     {
         // Generate points for the second pass. Case of the N+1th point for Ortho N+1 methods.
         // Erase existing trial points to ensure that they
@@ -131,13 +162,17 @@ bool NOMAD::Poll::runImp()
         auto evaluatedTrialPoints = getTrialPoints();
         clearTrialPoints();
 
+        // 1- Create poll methods and generate points (second pass)
         generateTrialPointsSecondPass();
+        
+        // 2- Complete trial points information (second pass)
+        completeTrialPointsInformation();
 
         // Evaluate point.
         if (getTrialPointsCount() > 0)
         {
             evalTrialPoints(this);
-            pollSuccessful = (getSuccessType() >= NOMAD::SuccessType::FULL_SUCCESS);
+            pollSuccessful = (_success >= NOMAD::SuccessType::FULL_SUCCESS);
         }
 
         // Add back trial points that are already evaluated.
@@ -146,7 +181,7 @@ bool NOMAD::Poll::runImp()
             insertTrialPoint(trialPoint);
         }
     }
-
+    
 #ifdef TIME_STATS
     _pollTime += NOMAD::Clock::getCPUTime() - pollStartTime;
     _pollEvalTime += NOMAD::EvcInterface::getEvaluatorControl()->getEvalTime() - pollEvalStartTime;
@@ -171,6 +206,7 @@ void NOMAD::Poll::endImp()
 
     // Compute hMax and update Barrier.
     postProcessing();
+    
 }
 
 
@@ -193,9 +229,6 @@ void NOMAD::Poll::generateTrialPointsImp()
         // Generate trial points. Snap to bounds and project on mesh is also done.
         pollMethod->generateTrialPoints();
         
-        // Complete trial points information with MODEL or SURROGATE eval
-        pollMethod->completeTrialPointsInformation();
-        
         // Reduce the number of trial points.
         // Currently, this is used only by Ortho N+1
         pollMethod->trialPointsReduction();
@@ -211,6 +244,9 @@ void NOMAD::Poll::generateTrialPointsImp()
     // Stopping criterion
     if (0 == getTrialPointsCount())
     {
+        // Success type when no trial points are produced
+        _success = NOMAD::SuccessType::NO_TRIALS;
+        
         setMeshPrecisionStopType();
     }
 }
@@ -245,95 +281,125 @@ void NOMAD::Poll::generateTrialPointsSecondPass()
     }
 }
 
+void NOMAD::Poll::generateTrialPointsExtra()
+{
+    size_t tmpTrial = _nbEvalPointsThatNeedEval;
+    const size_t maxLoops = 100;
+    size_t loops =0;
+    while (tmpTrial < _trialPointMaxAddUp && loops < maxLoops)
+    {
+        loops++;
+        for (const auto & frameCenter : _frameCenters)
+        {
+            auto pollMethod = std::make_shared<NOMAD::SinglePollMethod>(this, frameCenter);
+            
+            pollMethod->generateTrialPoints();
+            
+            // Add the additional poll method trial points to poll trial points.
+            for (auto point : pollMethod->getTrialPoints())
+            {
+                insertTrialPoint(point);
+                tmpTrial ++;
+            }
+        }
+        if (tmpTrial >= _trialPointMaxAddUp )
+        {
+            break;
+        }
+    }
+}
+
+
 
 void NOMAD::Poll::computePrimarySecondaryPollCenters(
-                        std::vector<NOMAD::EvalPoint> &primaryCenters,
-                        std::vector<NOMAD::EvalPoint> &secondaryCenters) const
+                        std::vector<NOMAD::EvalPointPtr> &primaryCenters,
+                        std::vector<NOMAD::EvalPointPtr> &secondaryCenters) const
 {
     auto barrier = getMegaIterationBarrier();
+    
     if (nullptr != barrier)
     {
-        auto firstXFeas = barrier->getFirstXFeas();
-        auto firstXInf  = barrier->getFirstXInf();
+        auto firstXIncFeas = barrier->getCurrentIncumbentFeas();
+        auto firstXIncInf  = barrier->getCurrentIncumbentInf();
         bool primaryIsInf = false;
-        NOMAD::Double rho = _runParams->getAttributeValue<NOMAD::Double>("RHO");
+        
         // Negative rho means make no distinction between primary and secondary polls.
-        bool usePrimarySecondary = (rho >= 0) && (nullptr != firstXFeas) && (nullptr != firstXInf);
+        bool usePrimarySecondary = (_rho >= 0) && (nullptr != firstXIncFeas) && (nullptr != firstXIncInf);
         if (usePrimarySecondary)
         {
             auto evc = NOMAD::EvcInterface::getEvaluatorControl();
-            auto evalType = evc->getEvalType();
+            auto evalType = evc->getCurrentEvalType();
             auto computeType = evc->getComputeType();
-            NOMAD::Double fFeas = firstXFeas->getF(evalType, computeType);
-            NOMAD::Double fInf  = firstXInf->getF(evalType, computeType);
+            NOMAD::Double fFeas = firstXIncFeas->getF(evalType, computeType);
+            NOMAD::Double fInf  = firstXIncInf->getF(evalType, computeType);
             if (fFeas.isDefined() && fInf.isDefined()
-                && (fFeas - rho) > fInf)
+                && (fFeas - _rho) > fInf)
             {
                 // xFeas' f is too large, use xInf as primary poll instead.
                 primaryIsInf = true;
             }
         }
-
+        
         if (usePrimarySecondary)
         {
             if (primaryIsInf)
             {
-                primaryCenters   = barrier->getAllXInf();
-                secondaryCenters = barrier->getAllXFeas();
+                primaryCenters.push_back( firstXIncInf );
+                secondaryCenters.push_back(firstXIncFeas );
             }
             else
             {
-                primaryCenters   = barrier->getAllXFeas();
-                secondaryCenters = barrier->getAllXInf();
+                primaryCenters.push_back(firstXIncFeas);
+                secondaryCenters.push_back(firstXIncInf);
             }
         }
         else
         {
-            // All points are primary centers.
-            primaryCenters = barrier->getAllPoints();
+            if (nullptr != firstXIncFeas)
+            {
+                primaryCenters.push_back(firstXIncFeas);
+            }
+            else
+            {
+                if (nullptr != firstXIncInf)
+                {
+                    primaryCenters.push_back(firstXIncInf);
+                }
+            }
         }
     }
 }
 
-void NOMAD::Poll::createPollMethods(const bool isPrimary, const EvalPoint & frameCenter)
+void NOMAD::Poll::createPollMethods(const bool isPrimary, const EvalPointPtr frameCenter)
 {
 
     
     // Select the poll methods to be executed
-    NOMAD::DirectionTypeList dirTypes;
-    if (isPrimary)
-    {
-        dirTypes = _runParams->getAttributeValue<DirectionTypeList>("DIRECTION_TYPE");
-    }
-    else
-    {
-        dirTypes = _runParams->getAttributeValue<DirectionTypeList>("DIRECTION_TYPE_SECONDARY_POLL");
-    }
+    NOMAD::DirectionTypeList dirTypes = (isPrimary) ? _primaryDirectionTypes : _secondaryDirectionTypes;
 
     for (auto dirType : dirTypes)
     {
         std::shared_ptr<NOMAD::PollMethodBase> pollMethod;
-        auto frameCenterPtr = std::make_shared<EvalPoint>(frameCenter);
-        _frameCenters.push_back(frameCenterPtr);
+        _frameCenters.push_back(frameCenter);
         switch (dirType)
         {
             case DirectionType::ORTHO_2N:
-                pollMethod = std::make_shared<NOMAD::Ortho2NPollMethod>(this, frameCenterPtr);
+                pollMethod = std::make_shared<NOMAD::Ortho2NPollMethod>(this, frameCenter);
                 break;
             case DirectionType::ORTHO_NP1_NEG:
-                pollMethod =std::make_shared<NOMAD::OrthoNPlus1PollMethod>(this, frameCenterPtr,false /* disable quad model opt. */);
+                pollMethod =std::make_shared<NOMAD::OrthoNPlus1PollMethod>(this, frameCenter,false /* disable quad model opt. */);
                     break;
             case DirectionType::ORTHO_NP1_QUAD:
-                pollMethod = std::make_shared<NOMAD::OrthoNPlus1PollMethod>(this, frameCenterPtr,true /* enable quad model opt. */);
+                pollMethod = std::make_shared<NOMAD::OrthoNPlus1PollMethod>(this, frameCenter,true /* enable quad model opt. */);
                 break;
             case DirectionType::NP1_UNI:
-                pollMethod = std::make_shared<NOMAD::NP1UniPollMethod>(this, frameCenterPtr);
+                pollMethod = std::make_shared<NOMAD::NP1UniPollMethod>(this, frameCenter);
                 break;
             case DirectionType::DOUBLE:
-                pollMethod = std::make_shared<NOMAD::DoublePollMethod>(this, frameCenterPtr);
+                pollMethod = std::make_shared<NOMAD::DoublePollMethod>(this, frameCenter);
                 break;
             case DirectionType::SINGLE:
-                pollMethod = std::make_shared<NOMAD::SinglePollMethod>(this, frameCenterPtr);
+                pollMethod = std::make_shared<NOMAD::SinglePollMethod>(this, frameCenter);
                 break;
             default:
                 throw NOMAD::Exception(__FILE__, __LINE__,"Poll method " + directionTypeToString(dirType) + " is not available.");
@@ -348,7 +414,7 @@ void NOMAD::Poll::createPollMethods(const bool isPrimary, const EvalPoint & fram
 void NOMAD::Poll::createPollMethodsForPollCenters()
 {
     // Compute primary and secondary poll centers
-    std::vector<NOMAD::EvalPoint> primaryCenters, secondaryCenters;
+    std::vector<NOMAD::EvalPointPtr> primaryCenters, secondaryCenters;
     computePrimarySecondaryPollCenters(primaryCenters, secondaryCenters);
     
     // Add poll methods for primary polls

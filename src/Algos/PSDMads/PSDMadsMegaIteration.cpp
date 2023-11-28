@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -71,7 +71,8 @@ void NOMAD::PSDMadsMegaIteration::startImp()
     setupSubproblemParams(subProblemPbParams, subProblemRunParams, isPollster);
 
     // Create Mads for this subproblem
-    _madsOnSubPb = std::make_shared<NOMAD::Mads>(this, madsStopReasons, subProblemRunParams, subProblemPbParams);
+    // The barrier of the algo will be initialized with the Cache.
+    _madsOnSubPb = std::make_shared<NOMAD::Mads>(this, madsStopReasons, subProblemRunParams, subProblemPbParams, true /* true: barrier initialized from cache */);
     /*
     std::string madsName = "Mads ";
     if (isPollster)
@@ -95,6 +96,10 @@ void NOMAD::PSDMadsMegaIteration::startImp()
     _madsOnSubPb->setName(madsName);
     */
     _madsOnSubPb->setStepType(NOMAD::StepType::ALGORITHM_PSD_MADS_SUBPROBLEM);
+    
+    
+    // Default mega iteration start tasks
+    NOMAD::MegaIteration::startImp();
 }
 
 
@@ -140,6 +145,8 @@ void NOMAD::PSDMadsMegaIteration::setupSubproblemParams(std::shared_ptr<NOMAD::P
     auto mainFrameSize = _mainMesh->getDeltaFrameSize();
     auto evc = NOMAD::EvcInterface::getEvaluatorControl();
 
+    // Note: If n >= 50, models are disabled. They could be re-enabled on
+    // subproblems with lesser dimension.
     subProblemPbParams->doNotShowWarnings();
     if (isPollster)
     {
@@ -154,7 +161,6 @@ void NOMAD::PSDMadsMegaIteration::setupSubproblemParams(std::shared_ptr<NOMAD::P
         subProblemRunParams->setAttributeValue("SGTELIB_MODEL_SEARCH", false);
         subProblemRunParams->setAttributeValue("SPECULATIVE_SEARCH", false);
         subProblemRunParams->setAttributeValue("VNS_MADS_SEARCH", false); 
-        
     }
     else
     {
@@ -178,7 +184,8 @@ void NOMAD::PSDMadsMegaIteration::setupSubproblemParams(std::shared_ptr<NOMAD::P
         // Issue #685. Force some algo settings. Need to test more thoroughly what give the best results
         subProblemRunParams->setAttributeValue("NM_SEARCH", false);
         subProblemRunParams->setAttributeValue("QUAD_MODEL_SEARCH", false);
-        subProblemRunParams->setAttributeValue("DIRECTION_TYPE",NOMAD::DirectionType::ORTHO_NP1_QUAD);
+        
+        subProblemRunParams->setAttributeValue("DIRECTION_TYPE",NOMAD::DirectionType::ORTHO_2N);
         
         subProblemPbParams->setAttributeValue("FIXED_VARIABLE", _fixedVariable);
         subProblemPbParams->setAttributeValue("X0", _x0);

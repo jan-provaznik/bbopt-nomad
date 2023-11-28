@@ -47,7 +47,7 @@ size_t
 . When this parameter is greater than one, the number of evaluations
   may exceed the MAX_BB_EVAL stopping criterion.
 
-. Argument: integer > 0
+. Argument: integer > 0.
 
 . Example: BB_MAX_BLOCK_SIZE 3
            The blackbox executable receives blocks of
@@ -55,6 +55,29 @@ size_t
 
 \)
 \( advanced block parallel \)
+ALGO_COMPATIBILITY_CHECK yes
+RESTART_ATTRIBUTE yes
+################################################################################
+SURROGATE_MAX_BLOCK_SIZE
+size_t
+1
+\( Size of blocks of points, to be used for parallel evaluations \)
+\(
+. Maximum size of a block of evaluations send to the surrogate
+  executable at once. Surrogate executable can manage parallel
+  evaluations on its own.
+
+. Depending on the algorithm phase, the surrogate executable will
+  receive at most SURROGATE_MAX_BLOCK_SIZE points to evaluate.
+
+. Argument: integer > 0.
+
+. Example: SURROGATE_MAX_BLOCK_SIZE INF
+           The surrogate executable receives blocks with
+           all points evailable for evaluation.
+
+\)
+\( advanced block parallel surrogate \)
 ALGO_COMPATIBILITY_CHECK yes
 RESTART_ATTRIBUTE yes
 ################################################################################
@@ -80,32 +103,6 @@ true
 ALGO_COMPATIBILITY_CHECK yes
 RESTART_ATTRIBUTE yes
 #################################################################################
-EVAL_QUEUE_SORT
-NOMAD::EvalSortType
-QUADRATIC_MODEL
-\( How to sort points before evaluation \)
-\(
-. Argument: One of DIR_LAST_SUCCESS, LEXICOGRAPHICAL, RANDOM, SURROGATE,
-  QUADRATIC_MODEL
-
-. DIR_LAST_SUCCESS: Points that are generated in a direction similar to the
-  last direction that provided a successful point are evaluated first.
-
-. LEXICOGRAPHICAL: Points are sorted in lexicographical order before evaluation.
-
-. RANDOM: Mix points randomly before evaluation, instead of sorting them.
-
-. SURROGATE: Sort points using values given by static surrogate. See parameter SURROGATE_EXE.
-
-. QUADRATIC_MODEL: Sort points using values given by dynamic quadratic models.
-
-. Example: EVAL_QUEUE_SORT LEXICOGRAPHICAL
-
-\)
-\( advanced \)
-ALGO_COMPATIBILITY_CHECK yes
-RESTART_ATTRIBUTE yes
-################################################################################
 EVAL_SURROGATE_COST
 size_t
 INF
@@ -138,7 +135,7 @@ INF
 . Maximum number of blackbox evaluations. When OpenMP is activated, this budget
 maybe exceeded due to parallel evaluations.
 
-. Argument: one positive integer
+. Argument: one positive integer.
 
 . An INF value serves to disable the stopping criterion.
 
@@ -159,7 +156,7 @@ INF
 
 . Maximum number of blocks evaluations
 
-. Argument: one positive integer
+. Argument: one positive integer.
 
 . An INF value serves to disable the stopping criterion.
 
@@ -179,7 +176,7 @@ INF
 . Maximum number of evaluations, including evaluations taken in the cache
   (cache hits)
 
-. Argument: one positive integer
+. Argument: one positive integer.
 
 . An INF value serves to disable the stopping criterion.
 
@@ -198,7 +195,7 @@ INF
 
 . Maximum number of static surrogate evaluations
 
-. Argument: one positive integer
+. Argument: one positive integer.
 
 . An INF value serves to disable the stopping criterion.
 
@@ -248,7 +245,7 @@ INF
 . When this parameter is greater than one, the number of evaluations
   may exceed the QUAD_MODEL_MAX_EVAL stopping criterion.
 
-. Argument: integer > 0
+. Argument: integer > 0.
 
 . Example: QUAD_MODEL_MAX_BLOCK_SIZE 100
            The blackbox executable receives blocks of
@@ -261,15 +258,19 @@ RESTART_ATTRIBUTE yes
 ################################################################################
 QUAD_MODEL_MAX_EVAL
 size_t
-5000
-\( Max number of model evaluations for each optimization of the quad model problem \)
+2000
+\( Max number of model evaluations for optimization of the quad model problem \)
 \(
 . Max number of model evaluations for each optimization of the quad model problem.
 
-. Argument: one integer > 0
+. Argument: one integer > 0.
 
-. The number of evaluations may exceed this parameter when parameter QUAD_MODEL_MAX_BLOCK_SIZE
-  is greater than one.
+. The number of evaluations may exceed this parameter when parameter
+  QUAD_MODEL_MAX_BLOCK_SIZE is greater than one.
+  
+. For faster quadratic model search execution this value can be reduced to 1000.
+  However, this can effect the quality of trial points obtained by quad model
+  search.
 
 . Example: QUAD_MODEL_MAX_EVAL 5000
 \)
@@ -291,7 +292,7 @@ INF
 . When this parameter is greater than one, the number of evaluations
   may exceed the SGTELIB_MODEL_MAX_EVAL stopping criterion.
 
-. Argument: integer > 0
+. Argument: integer > 0.
 
 . Example: SGTELIB_MODEL_MAX_BLOCK_SIZE 100
            The blackbox executable receives blocks of
@@ -304,12 +305,12 @@ RESTART_ATTRIBUTE yes
 ################################################################################
 SGTELIB_MODEL_MAX_EVAL
 size_t
-1000
+2000
 \( Max number of model evaluations for each optimization of the sgtelib model problem \)
 \(
 . Max number of model evaluations for each optimization of the sgtelib model problem.
 
-. Argument: one integer > 0
+. Argument: one integer > 0. 
 
 . The number of evaluations may exceed this parameter when parameter SGTELIB_MODEL_MAX_BLOCK_SIZE
   is greater than one.
@@ -332,7 +333,41 @@ std::string
 
 . Improved performance with a local temporary directory
 
+. Default is empty. Input/output files are put in problem directory
+
 . Example: TMP_DIR /tmp
+
+\)
+\( advanced \)
+ALGO_COMPATIBILITY_CHECK no
+RESTART_ATTRIBUTE no
+################################################################################
+USE_CACHE_FILE_FOR_RERUN
+bool
+false
+\( Cache file for rerun \)
+\(
+
+. Flag to allow a cache set for rerun optimization.
+
+. The cache for rerun is filled with evaluation points in the cache file (if 
+  it is provided, otherwise the option is inactive).
+  
+. The cache set for rerun complements the regular cache set. The regular
+  is used for testing if a point has already be evaluated 
+  (but not only for that).
+  
+. If an algorithm proposes a new trial point (not in regular cache), that is in
+  the cache for rerun, the evaluation results will be used.
+  
+. Points not in cache for rerun will be evaluated with blackbox. This allow to
+  perform a hot restart or reset the state of an algorithm to suggest new points.
+
+. If no cache file is provided simply revert to blackbox evaluation.
+
+. Argument: bool
+
+. Example: USE_CACHE_FILE_FOR_RERUN true
 
 \)
 \( advanced \)

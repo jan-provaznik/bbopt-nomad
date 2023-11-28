@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -88,16 +88,21 @@ NOMAD::StatsInfo::StatsInfo()
     _relativeSuccess(false),
     _comment(""),
     _genStep(""),
-    _success(NOMAD::SuccessType::NOT_EVALUATED)
+    _success(NOMAD::SuccessType::UNDEFINED)
 {
 }
 
 
-bool NOMAD::StatsInfo::alwaysDisplay(const bool displayInfeasible,
+bool NOMAD::StatsInfo::alwaysDisplay(const bool displayFailed,
+                                     const bool displayInfeasible,
                                      const bool displayUnsuccessful,
                                      const bool forStatsFile) const
 {
     bool doDisplay = false;
+    if (_failedEval)
+    {
+        return displayFailed;
+    }
     if (!_obj.isDefined())
     {
         doDisplay = false;
@@ -260,6 +265,10 @@ NOMAD::DisplayStatsType NOMAD::StatsInfo::stringToDisplayStatsType(const std::st
     {
         ret = NOMAD::DisplayStatsType::DS_TOTAL_MODEL_EVAL;
     }
+    else if (s == "TAG")
+    {
+        ret = NOMAD::DisplayStatsType::DS_TAG;
+    }
     else
     {
         // Don't throw an exception.
@@ -344,6 +353,8 @@ std::string NOMAD::StatsInfo::displayStatsTypeToString(const NOMAD::DisplayStats
             return "SURROGATE_EVAL";
         case NOMAD::DisplayStatsType::DS_TOTAL_MODEL_EVAL:
             return "TOTAL_MODEL_EVAL";
+        case NOMAD::DisplayStatsType::DS_TAG:
+            return "TAG";    
         case NOMAD::DisplayStatsType::DS_USER:
             return "USER";
         case NOMAD::DisplayStatsType::DS_UNDEFINED:
@@ -525,7 +536,7 @@ std::string NOMAD::StatsInfo::display(const NOMAD::DisplayStatsTypeList& format,
         {
             // Here, use displayNoPar() to have the same output as NOMAD 3
             // (no additional parenthesis).
-            out += _sol.displayNoPar(solFormat);
+            out += _sol.displayNoPar(solFormat,doubleFormat);
         }
         else if (NOMAD::DisplayStatsType::DS_SURROGATE_EVAL == statsType)
         {
@@ -550,6 +561,10 @@ std::string NOMAD::StatsInfo::display(const NOMAD::DisplayStatsTypeList& format,
         else if (NOMAD::DisplayStatsType::DS_TOTAL_MODEL_EVAL == statsType)
         {
             out += NOMAD::itos(_totalModelEval);
+        }
+        else if (NOMAD::DisplayStatsType::DS_TAG == statsType)
+        {
+            out +=  NOMAD::itos(_tag);
         }
         else if (NOMAD::DisplayStatsType::DS_USER == statsType)
         {

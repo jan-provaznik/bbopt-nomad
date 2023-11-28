@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -72,9 +72,6 @@ void NOMAD::SSDMadsMegaIteration::startImp()
     // Reset the random pickup (put back n to its initial value)
     _randomPickup.reset();
 
-    // Now that update has used the previous MegaIteration success type, reset it
-    setSuccessType(NOMAD::SuccessType::NOT_EVALUATED);
-
     // Verify mesh stop conditions.
     _mainMesh->checkMeshForStopping( _stopReasons );
 
@@ -83,10 +80,10 @@ void NOMAD::SSDMadsMegaIteration::startImp()
     OUTPUT_DEBUG_END
     if ( ! _stopReasons->checkTerminate() )
     {
-        auto bestEvalPoint = _barrier->getFirstXFeas();
+        auto bestEvalPoint = _barrier->getCurrentIncumbentFeas();
 
         if (bestEvalPoint == nullptr)
-            bestEvalPoint  = _barrier->getFirstXInf();
+            bestEvalPoint  = _barrier->getCurrentIncumbentInf();
 
         if (bestEvalPoint == nullptr)
             throw NOMAD::Exception(__FILE__, __LINE__, "No best eval point");
@@ -113,7 +110,7 @@ void NOMAD::SSDMadsMegaIteration::startImp()
 
             subProblemRunParams->checkAndComply(evcParams, subProblemPbParams);
 
-            auto madsOnASubProblem = std::make_shared<NOMAD::Mads>(this , stopReasons, subProblemRunParams, subProblemPbParams );
+            auto madsOnASubProblem = std::make_shared<NOMAD::Mads>(this , stopReasons, subProblemRunParams, subProblemPbParams , false /*false: Barrier not initialized from cache */);
             _madsList.push_back(madsOnASubProblem);
         }
 
@@ -121,6 +118,10 @@ void NOMAD::SSDMadsMegaIteration::startImp()
         OUTPUT_INFO_START
         AddOutputInfo(getName() + " has " + std::to_string(nbMadsSubproblem) + " subproblem mads.");
         OUTPUT_INFO_END
+        
+        // Default mega iteration start tasks
+        NOMAD::MegaIteration::startImp();
+        
     }
 }
 
@@ -128,8 +129,8 @@ void NOMAD::SSDMadsMegaIteration::startImp()
 
 bool NOMAD::SSDMadsMegaIteration::runImp()
 {
-    NOMAD::SuccessType bestSuccessYet = NOMAD::SuccessType::NOT_EVALUATED;
-    NOMAD::SuccessType subPbSuccess = SuccessType::NOT_EVALUATED;
+
+    NOMAD::SuccessType subPbSuccess = SuccessType::UNDEFINED;
 
     std::string s;
 
@@ -184,8 +185,8 @@ bool NOMAD::SSDMadsMegaIteration::runImp()
         NOMAD::EvalPointPtr newBestFeas,newBestInf;
 
         // Use mega iteration barrier to get the reference best points (should work for opportunistic or not)
-        auto refBestFeas = _barrier->getFirstXFeas();
-        auto refBestInf = _barrier->getFirstXInf();
+        auto refBestFeas = _barrier->getRefBestFeas();
+        auto refBestInf = _barrier->getRefBestInf();
 
         // Set the iter success based on best feasible and best infeasible points found compared to initial point.
         if (iterSuccessful && (nullptr != refBestFeas || nullptr != refBestInf))
@@ -194,13 +195,13 @@ bool NOMAD::SSDMadsMegaIteration::runImp()
             auto barrier = madsOnSubPb->getMegaIterationBarrier();
             if (nullptr != barrier)
             {
-                newBestFeas = barrier->getFirstXFeas();
-                newBestInf = barrier->getFirstXInf();
+                newBestFeas = barrier->getCurrentIncumbentFeas();
+                newBestInf = barrier->getCurrentIncumbentInf();
 
                 // Compute success
                 // Get which of newBestFeas and newBestInf is improving
                 // the solution. Check newBestFeas first.
-                NOMAD::ComputeSuccessType computeSuccess(evc->getEvalType(), evc->getComputeType());
+                NOMAD::ComputeSuccessType computeSuccess(evc->getCurrentEvalType(), evc->getComputeType());
                 subPbSuccess = computeSuccess(newBestFeas, refBestFeas);
                 if (subPbSuccess >= NOMAD::SuccessType::PARTIAL_SUCCESS)
                 {
@@ -248,9 +249,9 @@ bool NOMAD::SSDMadsMegaIteration::runImp()
                 }
             }
         }
-        if (subPbSuccess > bestSuccessYet)
+        if (subPbSuccess > _success)
         {
-            bestSuccessYet = subPbSuccess;
+            _success = subPbSuccess;
         }
 
         //
@@ -261,14 +262,14 @@ bool NOMAD::SSDMadsMegaIteration::runImp()
         auto evalPointList = madsOnSubPb->getMegaIterationBarrier()->getAllPoints();
         // Convert into full dimension
         NOMAD::convertPointListToFull(evalPointList, fixedVariable);
-        _barrier->updateWithPoints(evalPointList, NOMAD::EvalType::BB, evc->getComputeType(), true);
+        _barrier->updateWithPoints(evalPointList, NOMAD::EvalType::BB, evc->getComputeType(), true, true /* true: update incumbents and hMax */);
 
         // Reset counter will reset the EvalMainThreadStopReason if the max bb is reached for this sub optimization
         evc->resetBbEvalInSubproblem();
 
         // Set the stop reason for opportunistic success of a subproblem mads
         const bool opportunisticItStop = _runParams->getAttributeValue<bool>("SSD_MADS_ITER_OPPORTUNISTIC");
-        if (opportunisticItStop && (bestSuccessYet == NOMAD::SuccessType::FULL_SUCCESS))
+        if (opportunisticItStop && (_success == NOMAD::SuccessType::FULL_SUCCESS))
         {
             evc->setStopReason(NOMAD::getThreadNum(), NOMAD::EvalMainThreadStopType::OPPORTUNISTIC_SUCCESS);
         }
@@ -283,19 +284,15 @@ bool NOMAD::SSDMadsMegaIteration::runImp()
             OUTPUT_DEBUG_END
         }
 
-        if (_userInterrupt)
+        if (getUserInterrupt())
         {
             hotRestartOnUserInterrupt();
         }
 
     }
 
-
-    // Set success of the mega iteration
-    setSuccessType(bestSuccessYet);
-
     // return true if we have a partial or full success.
-    return (bestSuccessYet >= NOMAD::SuccessType::PARTIAL_SUCCESS);
+    return (_success >= NOMAD::SuccessType::PARTIAL_SUCCESS);
 }
 
 
@@ -346,6 +343,11 @@ void NOMAD::SSDMadsMegaIteration::setupSubproblemParams ( std::shared_ptr<NOMAD:
 
     // The fixed variables of the subproblem are set to the value of best point, the remaining variables are undefined.
     const auto nbVariablesInSubproblem = _runParams->getAttributeValue<size_t>("SSD_MADS_NB_VAR_IN_SUBPROBLEM"); // Number of variables in Subproblem
+    if (nbVariablesInSubproblem >= bestPoint.size())
+    {
+        throw NOMAD::Exception(__FILE__, __LINE__, "Nb variables in subproblem cannot greater or equal to the overall dimension of the problem.");
+    }
+    
     if (_runParams->getAttributeValue<bool>("SSD_MADS_RESET_VAR_PICKUP_SUBPROBLEM") )
     {
         _randomPickup.reset();

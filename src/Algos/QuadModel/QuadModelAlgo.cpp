@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -49,6 +49,7 @@
 #include "../../Algos/QuadModel/QuadModelMegaIteration.hpp"
 #include "../../Algos/QuadModel/QuadModelInitialization.hpp"
 #include "../../Algos/SubproblemManager.hpp"
+#include "../../Eval/ProgressiveBarrier.hpp"
 #include "../../Output/OutputQueue.hpp"
 
 #include "../../../ext/sgtelib/src/Surrogate_Factory.hpp"
@@ -87,13 +88,15 @@ bool NOMAD::QuadModelAlgo::runImp()
         if (nullptr == barrier)
         {
             auto hMax = _runParams->getAttributeValue<NOMAD::Double>("H_MAX_0");
-            barrier = std::make_shared<NOMAD::Barrier>(hMax,
+            
+            // Create a single objective progressive barrier
+            barrier = std::make_shared<NOMAD::ProgressiveBarrier>(hMax,
                                                        NOMAD::SubproblemManager::getInstance()->getSubFixedVariable(this),
                                                        NOMAD::EvalType::BB,
                                                        NOMAD::EvcInterface::getEvaluatorControl()->getComputeType());
         }
         
-        NOMAD::SuccessType megaIterSuccessType = NOMAD::SuccessType::NOT_EVALUATED;
+        NOMAD::SuccessType megaIterSuccessType = NOMAD::SuccessType::UNDEFINED;
         
         // member _megaIteration is used for hot restart (read and write)
         // Update it here.
@@ -116,7 +119,7 @@ bool NOMAD::QuadModelAlgo::runImp()
             barrier = megaIteration.getBarrier();
             megaIterSuccessType = megaIteration.NOMAD::MegaIteration::getSuccessType();
             
-            if (_userInterrupt)
+            if (getUserInterrupt())
             {
                 hotRestartOnUserInterrupt();
             }

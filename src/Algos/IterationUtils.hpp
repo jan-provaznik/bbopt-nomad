@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------*/
 /*  NOMAD - Nonlinear Optimization by Mesh Adaptive Direct Search -                */
 /*                                                                                 */
-/*  NOMAD - Version 4 has been created by                                          */
+/*  NOMAD - Version 4 has been created and developed by                            */
 /*                 Viviane Rochon Montplaisir  - Polytechnique Montreal            */
 /*                 Christophe Tribes           - Polytechnique Montreal            */
 /*                                                                                 */
@@ -45,17 +45,24 @@
 /*  You can find information on the NOMAD software at www.gerad.ca/nomad           */
 /*---------------------------------------------------------------------------------*/
 
-#ifndef __NOMAD_4_2_ITERATIONUTILS__
-#define __NOMAD_4_2_ITERATIONUTILS__
+#ifndef __NOMAD_4_4_ITERATIONUTILS__
+#define __NOMAD_4_4_ITERATIONUTILS__
 
 #include <stdexcept>
+
 
 #include "../Algos/Iteration.hpp"
 #include "../Algos/TrialPointStats.hpp"
 #include "../Algos/MegaIteration.hpp"
 #include "../Algos/Step.hpp"
+#include "../Eval/SuccessStats.hpp"
+
+#ifdef USE_IBEX
+#include "__build__/ibex.h"
+#endif
 
 #include "../nomad_nsbegin.hpp"
+
 
 /// Class of utils (attributes and helper functions) for some phases of an algorithm that involve Iteration.
 /**
@@ -72,8 +79,6 @@ protected:
     size_t _nbEvalPointsThatNeedEval;
 
     const Step * _parentStep;
-
-    SuccessType _success; ///< Success type of this step.
 
     /**
      Iteration ancestor (may be _parentStep).
@@ -92,14 +97,40 @@ protected:
      */
     TrialPointStats _trialPointStats;
     
+    /**
+     Trial points can be projected on mesh or not.
+     For now, this is only for search method.
+     Note: theory requires mesh projection.
+     */
+    bool _projectOnMesh ;
+    
+    
+    #ifdef USE_IBEX
+    NOMAD::Point projectWithIbex(NOMAD::Point point);
+    #endif
+    
+    /// Parameters set in init
+    /**
+     No need to do getAttributeValue every time we need these parameters
+     */
+    bool _frameCenterUseCache ;
+    Point _pointPrecisionFull; ///< Point format in full dimension (not subspace)
+    
 private:
     /**
      Flag: True if the direct parent step is an Algorithm. False otherwise. \n
      Used when evaluating trial points without mesh and frame center.
      */
     bool _fromAlgo;
+    
+    
 
-
+protected:
+    
+    SuccessType _trialPointsSuccess; ///< Success type of trial points evaluation.
+    
+    bool _updateIncumbentsAndHMax;
+    
 public:
     /// Constructor
     /**
@@ -109,10 +140,12 @@ public:
       : _trialPoints(),
         _nbEvalPointsThatNeedEval(0),
         _parentStep(parentStep),
-        _success(SuccessType::NOT_EVALUATED),
+        _trialPointsSuccess(SuccessType::UNDEFINED),
         _iterAncestor(nullptr),
         _trialPointStats( parentStep ),
-        _fromAlgo(false)
+        _fromAlgo(false),
+        _updateIncumbentsAndHMax(true),
+        _projectOnMesh(true)
     {
         init();
     }
@@ -129,8 +162,7 @@ public:
     /*---------*/
     /* Get/Set */
     /*---------*/
-    const SuccessType& getSuccessType() const       { return _success; }
-    void setSuccessType(const SuccessType& success) { _success = success; }
+    const SuccessType& getTrialPointsSuccessType() const       { return _trialPointsSuccess; }
 
     size_t getTrialPointsCount() const              { return _trialPoints.size(); }
     const EvalPointSet& getTrialPoints() const      { return _trialPoints; }
@@ -180,6 +212,15 @@ public:
                                            const ArrayOfDouble& lowerBound,
                                            const ArrayOfDouble& upperBound);
 
+
+    
+    /// Count trial points that would need eval
+    /**
+     \param step    Current step to get the barrier from.
+     */
+    void countTrialPointsThatNeedEval(const Step *step);
+    
+    
     /// Start evaluation of the trial points
     /**
      * Called by run.
@@ -199,6 +240,12 @@ public:
     /** Algorithm iteration steps must implement generateTrialPointImp
      */
     void generateTrialPoints();
+    
+    /// Add evaluation information from static surrogate or model to trial points
+    /*
+     This is used for sorting. Sorting can be used to reduce the number of trial points (Poll methods) and also to prioritize the evaluations (Poll and Search methods).
+     */
+    virtual void completeTrialPointsInformation();
 
     /// Generate the second pass trial points of an algorithm iteration before evaluation.
     void generateTrialPointsSecondPass();
@@ -210,16 +257,36 @@ public:
     virtual void generateTrialPointsSecondPassImp() {} ;
     
     void updateStats(TrialPointStats & trialPointStats);
+    
 
+    
+    
 protected:
     bool meshIsFinest() const;
+
     
 private:
        
     /// Helper for constructor
     void init();
+    
+    /// Helper for evalTrialPoints
+    void updateStepSuccessStats(const Step* step);
+    
+    /// Helper for evalTrialPoints:
+    /**
+     * keep trial points that need eval
+     \param step    Current step.
+     \param keepN   Number of points to keep (by default keep all)
+     \param removeStepType Remove trial points of this type after evaluation (default UNDEFINED, do not remove).
+     */
+    void keepTrialPointsThatNeedEval(const Step* step,
+                                     const size_t keepN = INF_SIZE_T,
+                                     StepType removeStepType = StepType::UNDEFINED);
+    
+    
 };
 
 #include "../nomad_nsend.hpp"
 
-#endif // __NOMAD_4_2_ITERATIONUTILS__
+#endif // __NOMAD_4_4_ITERATIONUTILS__
