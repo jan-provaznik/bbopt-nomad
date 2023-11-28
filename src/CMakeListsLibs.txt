@@ -159,7 +159,6 @@ if(USE_SGTELIB MATCHES ON)
     nomadAlgos
     PRIVATE
       ${QUADMODEL_SOURCES}
-      ${QUADMODELSLD_SOURCES} 
       ${SGTELIBMODEL_SOURCES} 
   )
 
@@ -168,7 +167,6 @@ if(USE_SGTELIB MATCHES ON)
     PUBLIC
       $<BUILD_INTERFACE: 
         ${CMAKE_CURRENT_SOURCE_DIR}/Algos/QuadModel
-        ${CMAKE_CURRENT_SOURCE_DIR}/Algos/QuadModelSLD
         ${CMAKE_CURRENT_SOURCE_DIR}/Algos/SgtelibModel
       >
   )

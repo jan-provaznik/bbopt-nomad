@@ -13,7 +13,6 @@ Algos/Iteration.hpp
 Algos/IterationUtils.hpp
 Algos/MainStep.hpp
 Algos/MegaIteration.hpp
-Algos/Projection.hpp
 Algos/Step.hpp
 Algos/Subproblem.hpp
 Algos/SubproblemManager.hpp
@@ -33,7 +32,6 @@ Algos/Iteration.cpp
 Algos/IterationUtils.cpp
 Algos/MainStep.cpp
 Algos/MegaIteration.cpp
-Algos/Projection.cpp
 Algos/Step.cpp
 Algos/Subproblem.cpp
 Algos/SubproblemManager.cpp
@@ -389,7 +387,6 @@ Algos/Mads/Poll.hpp
 Algos/Mads/PollMethodBase.hpp
 Algos/Mads/QPSolverAlgoSearchMethod.hpp
 Algos/Mads/QuadAndLHSearchMethod.cpp
-Algos/Mads/QuadSldSearchMethod.hpp
 Algos/Mads/QuadSearchMethod.hpp
 Algos/Mads/Search.hpp
 Algos/Mads/SearchMethodAlgo.hpp
@@ -424,7 +421,6 @@ Algos/Mads/Poll.cpp
 Algos/Mads/PollMethodBase.cpp
 Algos/Mads/QPSolverAlgoSearchMethod.cpp
 Algos/Mads/QuadAndLHSearchMethod.cpp
-Algos/Mads/QuadSldSearchMethod.cpp
 Algos/Mads/QuadSearchMethod.cpp
 Algos/Mads/Search.cpp
 Algos/Mads/SearchMethodAlgo.cpp
@@ -522,35 +518,6 @@ Algos/QuadModel/QuadModelMegaIteration.cpp
 Algos/QuadModel/QuadModelOptimize.cpp
 Algos/QuadModel/QuadModelSinglePass.cpp
 Algos/QuadModel/QuadModelUpdate.cpp
-)
-
-#
-# QuadModel SLD
-#
-set(QUADMODELSLD_HEADERS
-Algos/QuadModelSLD/QuadModelSld.hpp
-Algos/QuadModelSLD/QuadModelSldAlgo.hpp
-Algos/QuadModelSLD/QuadModelSldEvaluator.hpp
-Algos/QuadModelSLD/QuadModelSldInitialization.hpp
-Algos/QuadModelSLD/QuadModelSldIteration.hpp
-Algos/QuadModelSLD/QuadModelSldIterationUtils.hpp
-Algos/QuadModelSLD/QuadModelSldMegaIteration.hpp
-Algos/QuadModelSLD/QuadModelSldOptimize.hpp
-Algos/QuadModelSLD/QuadModelSldSinglePass.hpp
-Algos/QuadModelSLD/QuadModelSldUpdate.hpp
-)
-
-set(QUADMODELSLD_SOURCES
-Algos/QuadModelSLD/QuadModelSld.cpp
-Algos/QuadModelSLD/QuadModelSldAlgo.cpp
-Algos/QuadModelSLD/QuadModelSldEvaluator.cpp
-Algos/QuadModelSLD/QuadModelSldInitialization.cpp
-Algos/QuadModelSLD/QuadModelSldIteration.cpp
-Algos/QuadModelSLD/QuadModelSldIterationUtils.cpp
-Algos/QuadModelSLD/QuadModelSldMegaIteration.cpp
-Algos/QuadModelSLD/QuadModelSldOptimize.cpp
-Algos/QuadModelSLD/QuadModelSldSinglePass.cpp
-Algos/QuadModelSLD/QuadModelSldUpdate.cpp
 )
 
 #
@@ -803,11 +770,6 @@ install(
 install(
   FILES ${QUADMODEL_HEADERS}
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nomad/Algos/QuadModel
-)
-
-install(
-  FILES ${QUADMODELSLD_HEADERS}
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nomad/Algos/QuadModelSLD
 )
 
 install(
