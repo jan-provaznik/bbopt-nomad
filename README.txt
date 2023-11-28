@@ -59,9 +59,10 @@ The algorithms implemented are based on the book
 Springer 2017.
 
 
-WEB PAGE:
+WEB PAGES:
 
 https://www.gerad.ca/nomad/
+Https://github.com/bbopt/nomad
 
 
 CONTACT:
@@ -71,10 +72,10 @@ nomad@gerad.ca
 
 VERSION WARNING:
 
-This repository is for NOMAD 4. NOMAD 3 is not on GitHub.
+This repository is for NOMAD 4. The previous version, NOMAD 3, 
+is not on GitHub. NOMAD 3 will be deprecated in the future.
 
-NOMAD 4 is similar in usage to NOMAD 3. It does not have all
-functionalities from NOMAD 3 yet. 
+NOMAD 4 is similar in usage to NOMAD 3. 
 
 NOMAD 4 has a new software architecture, uses OpenMP to run 
 evaluations in parallel, and also has some new functionalities.
@@ -109,6 +110,9 @@ cmake -S . -B build/release
 
          To enable *Matlab* interface building:
               cmake -DBUILD_INTERFACE_MATLAB=ON  -DTEST_OPENMP=OFF -S . -B build/release
+
+              ! More details are provided in $NOMAD_HOME/interfaces/Matlab_MEX/readme.txt 
+
               ! Compiler version and Matlab version need to be compatible;
               ! Check https://www.mathworks.com/support/requirements/supported-compilers.html
                
@@ -117,17 +121,18 @@ cmake -S . -B build/release
               ! An extra addpath Matlab command must be done to have access 
               to nomad Mex binaries. 
               
-              ! Extra flags might be required to prevent CMake errors. See details 
-              in User Guide (Section Matlab interface).
+              ! Extra flags might be required to prevent CMake errors. 
 
          To enable *Python* interface (PyNomad) building:
               cmake -DBUILD_INTERFACE_PYTHON=ON -S . -B build/release
+
+              ! More details are provided in $NOMAD_HOME/interfaces/PyNomad/readme.txt 
              
               ! Building requires to have Cython. Cython can be obtained with
               Anaconda distribution platform.
   
-              ! On *Windows*, using Visual Studio, see the user guide to properly
-              manage X86/X64 building of binaries. 
+              ! On *Windows*, using Visual Studio, see the user guide or the readme
+              to properly manage X86/X64 building of binaries. 
               
          To enable *Java* interface building (with Swig):
               cmake -DBUILD_INTERFACE_JAVA=ON -S . -B build/release
@@ -193,9 +198,10 @@ by default. The problem may be resolved using NOMAD and the parameter file:
 
 $NOMAD_HOME/build/release/bin/nomad param.txt
 
-For convenience, the path to $NOMAD_HOME/build/release/bin directory can 
-be added to the $PATH environment variable. For *Windows*, this is 
-achieved by setting the parameters for environment variable %PATH%. 
+For convenience, the path to $NOMAD_HOME/build/release/bin directory 
+can be added to the $PATH environment variable. For *Windows*, this is 
+achieved by setting the parameters for environment variable %PATH% to
+ 
 
 Library Mode:
 There are examples in library mode in $NOMAD_HOME/examples/basic/library/.
