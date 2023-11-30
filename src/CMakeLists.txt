@@ -386,7 +386,6 @@ Algos/Mads/OrthoNPlus1PollMethod.hpp
 Algos/Mads/Poll.hpp
 Algos/Mads/PollMethodBase.hpp
 Algos/Mads/QPSolverAlgoSearchMethod.hpp
-Algos/Mads/QuadAndLHSearchMethod.cpp
 Algos/Mads/QuadSearchMethod.hpp
 Algos/Mads/Search.hpp
 Algos/Mads/SearchMethodAlgo.hpp
@@ -420,7 +419,6 @@ Algos/Mads/OrthoNPlus1PollMethod.cpp
 Algos/Mads/Poll.cpp
 Algos/Mads/PollMethodBase.cpp
 Algos/Mads/QPSolverAlgoSearchMethod.cpp
-Algos/Mads/QuadAndLHSearchMethod.cpp
 Algos/Mads/QuadSearchMethod.cpp
 Algos/Mads/Search.cpp
 Algos/Mads/SearchMethodAlgo.cpp
