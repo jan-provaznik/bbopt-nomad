@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------------------*/
 /*  sgtelib - A surrogate model library for derivative-free optimization               */
-/*  Version 2.0.2                                                                      */
+/*  Version 2.0.3                                                                      */
 /*                                                                                     */
 /*  Copyright (C) 2012-2017  Sebastien Le Digabel - Ecole Polytechnique, Montreal      */ 
 /*                           Bastien Talgorn - McGill University, Montreal             */
@@ -121,6 +121,10 @@ namespace SGTELIB {
     // constructor 1:
     TrainingSet ( const SGTELIB::Matrix & X ,
                   const SGTELIB::Matrix & Z );
+      
+    // constructor 2: empty training set
+    TrainingSet ( int n , int m );
+      
 
     // destructor:
     virtual ~TrainingSet ( void );
@@ -209,6 +213,8 @@ namespace SGTELIB {
     SGTELIB::bbo_t get_bbo ( int j) const { check_ready(); return _bbo[j]; };
 
     double get_X_scaling_a ( int j) const { check_ready(); return _X_scaling_a[j]; };
+      
+    double get_Z_scaling_a ( int j) const { check_ready(); return _Z_scaling_a[j]; };
 
     // Return the design matrix
     const SGTELIB::Matrix & get_matrix_Xs ( void ) const { check_ready(); return _Xs; };

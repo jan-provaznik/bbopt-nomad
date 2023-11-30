@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------------------*/
 /*  sgtelib - A surrogate model library for derivative-free optimization               */
-/*  Version 2.0.2                                                                      */
+/*  Version 2.0.3                                                                      */
 /*                                                                                     */
 /*  Copyright (C) 2012-2017  Sebastien Le Digabel - Ecole Polytechnique, Montreal      */ 
 /*                           Bastien Talgorn - McGill University, Montreal             */
@@ -46,6 +46,16 @@ SGTELIB::Surrogate_Parameters::Surrogate_Parameters ( const std::string & s ):
   _type  ( read_model_type(s) ){
   set_defaults();
   read_string(s);
+  check();
+}//
+
+/*-----------------------------------------------------------------------*/
+/*          constructor for default empty parameters                     */
+/*-----------------------------------------------------------------------*/
+SGTELIB::Surrogate_Parameters::Surrogate_Parameters ( ):
+  _type  ( SGTELIB::PRS ){
+  set_defaults();
+  read_string("");
   check();
 }//
 
